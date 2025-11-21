@@ -180,21 +180,48 @@ function FurnitureObject({
     }
   }, [item.id, item.position, item.rotation, item.scale, collisionDetector])
 
+  // Get bounding box size for each furniture type (for invisible click area)
+  const getBoundingSize = (): [number, number, number, number, number, number] => {
+    // Returns [width, height, depth, offsetX, offsetY, offsetZ]
+    switch (item.type) {
+      case "chair": return [0.5, 0.8, 0.5, 0, 0.4, 0]
+      case "table": return [1.2, 0.8, 0.8, 0, 0.4, 0]
+      case "sofa": return [2.0, 1.0, 1.0, 0, 0.5, 0]
+      case "lamp": return [0.5, 1.9, 0.5, 0, 0.95, 0]
+      case "bed": return [1.5, 1.0, 2.1, 0, 0.5, 0]
+      default: return [0.5, 0.5, 0.5, 0, 0.25, 0]
+    }
+  }
+
   const renderGeometry = () => {
     const commonProps = {
       castShadow: true,
       receiveShadow: true,
-      onClick: handleClick,
     }
 
+    const [bw, bh, bd, bx, by, bz] = getBoundingSize()
+
+    // Invisible bounding box for easier clicking
+    const clickBox = (
+      <Box args={[bw, bh, bd]} position={[bx, by, bz]}>
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </Box>
+    )
+
     if (item.modelUrl && item.modelType) {
-      return <ModelLoader url={item.modelUrl} type={item.modelType} onClick={handleClick} />
+      return (
+        <group>
+          {clickBox}
+          <ModelLoader url={item.modelUrl} type={item.modelType} onClick={handleClick} />
+        </group>
+      )
     }
 
     switch (item.type) {
       case "chair":
         return (
           <group>
+            {clickBox}
             <Box args={[0.5, 0.08, 0.5]} position={[0, 0.25, 0]} {...commonProps}>
               <meshStandardMaterial color={isSelected ? "#D97706" : "#8B4513"} />
             </Box>
@@ -216,6 +243,7 @@ function FurnitureObject({
       case "table":
         return (
           <group>
+            {clickBox}
             <Box args={[1.2, 0.05, 0.8]} position={[0, 0.75, 0]} {...commonProps}>
               <meshStandardMaterial color={isSelected ? "#D97706" : "#A0522D"} />
             </Box>
@@ -234,6 +262,7 @@ function FurnitureObject({
       case "sofa":
         return (
           <group>
+            {clickBox}
             <Box args={[1.8, 0.4, 0.8]} position={[0, 0.4, 0]} {...commonProps}>
               <meshStandardMaterial color={isSelected ? "#3B82F6" : "#4A5568"} />
             </Box>
@@ -250,6 +279,7 @@ function FurnitureObject({
       case "lamp":
         return (
           <group>
+            {clickBox}
             <Cylinder args={[0.15, 0.15, 0.03]} position={[0, 0.015, 0]} {...commonProps}>
               <meshStandardMaterial color={isSelected ? "#1E40AF" : "#2D3748"} />
             </Cylinder>
@@ -265,6 +295,7 @@ function FurnitureObject({
       case "bed":
         return (
           <group>
+            {clickBox}
             <Box args={[1.4, 0.3, 2.0]} position={[0, 0.3, 0]} {...commonProps}>
               <meshStandardMaterial color={isSelected ? "#DC2626" : "#EF4444"} />
             </Box>
@@ -288,9 +319,12 @@ function FurnitureObject({
         )
       default:
         return (
-          <Box args={[0.5, 0.5, 0.5]} {...commonProps}>
-            <meshStandardMaterial color={isSelected ? "#3B82F6" : "#CBD5E0"} />
-          </Box>
+          <group>
+            {clickBox}
+            <Box args={[0.5, 0.5, 0.5]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#3B82F6" : "#CBD5E0"} />
+            </Box>
+          </group>
         )
     }
   }

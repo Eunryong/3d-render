@@ -120,9 +120,9 @@ function FurnitureFocusController({
 function CameraController({
   plyMesh,
   collisionDetector,
-}: { plyMesh: THREE.Mesh | null; collisionDetector: CollisionDetector }) {
+}: { plyMesh: THREE.Mesh | THREE.Group | null; collisionDetector: CollisionDetector }) {
   const { camera, controls } = useThree()
-  const lastMeshRef = useRef<THREE.Mesh | null>(null)
+  const lastMeshRef = useRef<THREE.Mesh | THREE.Group | null>(null)
 
   useEffect(() => {
     if (plyMesh && plyMesh !== lastMeshRef.current) {
@@ -208,18 +208,39 @@ export function SceneViewer({
   floorOrientation = "Y",
   plyColor = "#ffffff",
 }: SceneViewerProps) {
-  const [plyMesh, setPlyMesh] = useState<THREE.Mesh | null>(null)
+  const [plyMesh, setPlyMesh] = useState<THREE.Mesh | THREE.Group | null>(null)
   const [backgroundTexture, setBackgroundTexture] = useState<THREE.Texture | null>(null)
   const [gridConfig, setGridConfig] = useState({ cellSize: 1, sectionSize: 5, fadeDistance: 30, floorHeight: 0 })
 
   const handleMeshLoad = useCallback(
-    (mesh: THREE.Mesh) => {
+    (meshOrGroup: THREE.Mesh | THREE.Group) => {
       // Prevent duplicate calls for the same mesh
-      if (plyMesh === mesh) return
+      if (plyMesh === meshOrGroup) return
 
       console.log("[v0] Background mesh loaded, setting up collision detection")
+
+      // Get the first mesh from the group if it's a group
+      let mesh: THREE.Mesh
+      if ((meshOrGroup as THREE.Mesh).isMesh) {
+        mesh = meshOrGroup as THREE.Mesh
+      } else {
+        // Find first mesh in the group
+        let foundMesh: THREE.Mesh | null = null
+        meshOrGroup.traverse((child) => {
+          if (!foundMesh && (child as THREE.Mesh).isMesh) {
+            foundMesh = child as THREE.Mesh
+          }
+        })
+        if (foundMesh) {
+          mesh = foundMesh
+        } else {
+          console.warn("No mesh found in group")
+          return
+        }
+      }
+
       collisionDetector.setBackgroundMesh(mesh)
-      setPlyMesh(mesh)
+      setPlyMesh(meshOrGroup)
 
       // Since PLY is now normalized to ~20 units, use fixed grid settings
       // Grid optimized for 20-unit normalized space
