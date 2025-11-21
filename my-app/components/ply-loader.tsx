@@ -1,33 +1,35 @@
-'use client'
+"use client"
 
-import { useState, useEffect, useRef } from 'react'
-import { PLYLoader as ThreePLYLoader } from 'three-stdlib'
-import * as THREE from 'three'
-import { Html } from '@react-three/drei'
+import { useState, useEffect, useRef } from "react"
+import { PLYLoader as ThreePLYLoader } from "three-stdlib"
+import { GLTFLoader } from "three-stdlib"
+import * as THREE from "three"
+import { Html } from "@react-three/drei"
 
 interface PLYLoaderProps {
   file: File
-  onMeshLoad?: (mesh: THREE.Mesh) => void
+  onMeshLoad?: (mesh: THREE.Mesh | THREE.Group) => void
+  color?: string
 }
 
-function LoadingIndicator({ progress }: { progress: number }) {
+function LoadingIndicator({ progress, fileType }: { progress: number; fileType: string }) {
   return (
     <Html center>
       <div className="bg-white/95 dark:bg-gray-950/95 backdrop-blur-sm p-8 rounded-lg border border-gray-200 dark:border-gray-800 shadow-2xl min-w-[300px]">
         <div className="flex flex-col items-center gap-4">
           <div className="relative w-20 h-20">
             <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full" />
-            <div 
+            <div
               className="absolute inset-0 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin"
-              style={{ animationDuration: '0.8s' }}
+              style={{ animationDuration: "0.8s" }}
             />
           </div>
           <div className="text-center space-y-2">
-            <p className="text-lg font-semibold text-gray-950 dark:text-gray-50">PLY 모델 로딩 중</p>
+            <p className="text-lg font-semibold text-gray-950 dark:text-gray-50">{fileType} 모델 로딩 중</p>
             <p className="text-sm text-gray-500 dark:text-gray-400">잠시만 기다려주세요...</p>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2.5 overflow-hidden">
-            <div 
+            <div
               className="bg-blue-600 dark:bg-blue-500 h-full rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
@@ -39,81 +41,29 @@ function LoadingIndicator({ progress }: { progress: number }) {
   )
 }
 
-export function PLYLoader({ file, onMeshLoad }: PLYLoaderProps) {
+export function PLYLoader({ file, onMeshLoad, color = "#e0e0e0" }: PLYLoaderProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
+  const [model, setModel] = useState<THREE.Group | null>(null)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [fileType, setFileType] = useState<"PLY" | "GLB">("PLY")
   const meshRef = useRef<THREE.Mesh>(null)
-  const urlRef = useRef<string>('')
+  const groupRef = useRef<THREE.Group>(null)
+  const urlRef = useRef<string>("")
 
   useEffect(() => {
-    const loadPLY = async () => {
-      try {
-        setProgress(10)
-        
-        const url = URL.createObjectURL(file)
-        urlRef.current = url
-        setProgress(20)
+    const fileExtension = file.name.split(".").pop()?.toLowerCase()
 
-        const loader = new ThreePLYLoader()
-        
-        const arrayBuffer = await file.arrayBuffer()
-        setProgress(40)
-
-        const loadedGeometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
-          try {
-            const geo = loader.parse(arrayBuffer)
-            setProgress(70)
-            resolve(geo)
-          } catch (err) {
-            reject(err)
-          }
-        })
-
-        setProgress(80)
-
-        if (!loadedGeometry.attributes.normal) {
-          await new Promise(resolve => {
-            setTimeout(() => {
-              loadedGeometry.computeVertexNormals()
-              resolve(true)
-            }, 0)
-          })
-        }
-
-        setProgress(90)
-
-        // Center the geometry first
-        loadedGeometry.center()
-
-        // Compute bounding box to get the size
-        loadedGeometry.computeBoundingBox()
-        const boundingBox = loadedGeometry.boundingBox!
-        const size = new THREE.Vector3()
-        boundingBox.getSize(size)
-
-        // Calculate scale factor to fit model into a normalized space (e.g., 20 units)
-        const maxDim = Math.max(size.x, size.y, size.z)
-        const targetSize = 20 // Target maximum dimension in scene units
-        const scaleFactor = targetSize / maxDim
-
-        // Scale the geometry
-        loadedGeometry.scale(scaleFactor, scaleFactor, scaleFactor)
-
-        console.log('[PLY] Normalized model:', { originalSize: size.toArray(), maxDim, scaleFactor, targetSize })
-
-        setProgress(100)
-        setGeometry(loadedGeometry)
-        
-      } catch (err) {
-        console.error('PLY loading error:', err)
-        setError('PLY 파일 로드 중 오류가 발생했습니다.')
-      }
+    if (fileExtension === "glb" || fileExtension === "gltf") {
+      setFileType("GLB")
+      loadGLB()
+    } else if (fileExtension === "ply") {
+      setFileType("PLY")
+      loadPLY()
+    } else {
+      setError("지원하지 않는 파일 형식입니다. PLY 또는 GLB 파일을 사용해주세요.")
     }
 
-    loadPLY()
-
-    // Cleanup
     return () => {
       if (urlRef.current) {
         URL.revokeObjectURL(urlRef.current)
@@ -123,6 +73,105 @@ export function PLYLoader({ file, onMeshLoad }: PLYLoaderProps) {
       }
     }
   }, [file])
+
+  const loadGLB = async () => {
+    try {
+      setProgress(10)
+
+      const url = URL.createObjectURL(file)
+      urlRef.current = url
+      setProgress(20)
+
+      const loader = new GLTFLoader()
+
+      loader.load(
+        url,
+        (gltf) => {
+          setProgress(70)
+
+          const group = gltf.scene
+          group.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              child.receiveShadow = true
+              child.castShadow = true
+            }
+          })
+
+          // Center the model
+          const box = new THREE.Box3().setFromObject(group)
+          const center = new THREE.Vector3()
+          box.getCenter(center)
+          group.position.sub(center)
+
+          setProgress(100)
+          setModel(group)
+
+          if (onMeshLoad) {
+            onMeshLoad(group)
+          }
+        },
+        (progressEvent) => {
+          if (progressEvent.lengthComputable) {
+            const percentComplete = (progressEvent.loaded / progressEvent.total) * 70 + 20
+            setProgress(percentComplete)
+          }
+        },
+        (error) => {
+          console.error("GLB loading error:", error)
+          setError("GLB 파일 로드 중 오류가 발생했습니다.")
+        },
+      )
+    } catch (err) {
+      console.error("GLB loading error:", err)
+      setError("GLB 파일 로드 중 오류가 발생했습니다.")
+    }
+  }
+
+  const loadPLY = async () => {
+    try {
+      setProgress(10)
+
+      const url = URL.createObjectURL(file)
+      urlRef.current = url
+      setProgress(20)
+
+      const loader = new ThreePLYLoader()
+
+      const arrayBuffer = await file.arrayBuffer()
+      setProgress(40)
+
+      const loadedGeometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
+        try {
+          const geo = loader.parse(arrayBuffer)
+          setProgress(70)
+          resolve(geo)
+        } catch (err) {
+          reject(err)
+        }
+      })
+
+      setProgress(80)
+
+      if (!loadedGeometry.attributes.normal) {
+        await new Promise((resolve) => {
+          setTimeout(() => {
+            loadedGeometry.computeVertexNormals()
+            resolve(true)
+          }, 0)
+        })
+      }
+
+      setProgress(90)
+
+      loadedGeometry.center()
+
+      setProgress(100)
+      setGeometry(loadedGeometry)
+    } catch (err) {
+      console.error("PLY loading error:", err)
+      setError("PLY 파일 로드 중 오류가 발생했습니다.")
+    }
+  }
 
   useEffect(() => {
     if (meshRef.current && geometry && onMeshLoad) {
@@ -140,22 +189,17 @@ export function PLYLoader({ file, onMeshLoad }: PLYLoaderProps) {
     )
   }
 
-  if (!geometry) {
-    return <LoadingIndicator progress={progress} />
+  if (model) {
+    return <primitive ref={groupRef} object={model} />
   }
 
-  // Check if geometry has vertex colors
-  const hasVertexColors = geometry.attributes.color !== undefined
+  if (!geometry) {
+    return <LoadingIndicator progress={progress} fileType={fileType} />
+  }
 
   return (
     <mesh ref={meshRef} geometry={geometry} receiveShadow>
-      <meshStandardMaterial
-        color={hasVertexColors ? "#ffffff" : "#e0e0e0"}
-        vertexColors={hasVertexColors}
-        side={THREE.DoubleSide}
-        roughness={0.8}
-        metalness={0.2}
-      />
+      <meshStandardMaterial color={color} side={THREE.DoubleSide} roughness={0.8} metalness={0.2} />
     </mesh>
   )
 }

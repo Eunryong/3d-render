@@ -1,11 +1,12 @@
-'use client'
+"use client"
 
-import { useRef, useEffect, useState } from 'react'
-import { TransformControls } from '@react-three/drei'
-import { Box, Sphere, Cylinder } from '@react-three/drei'
-import * as THREE from 'three'
-import { CollisionDetector } from './collision-detector'
-import { ModelLoader } from './model-loader'
+import { useRef, useEffect, useCallback, useState } from "react"
+import { TransformControls } from "@react-three/drei"
+import { Box, Cylinder } from "@react-three/drei"
+import { useThree } from "@react-three/fiber"
+import * as THREE from "three"
+import type { CollisionDetector } from "./collision-detector"
+import { ModelLoader } from "./model-loader"
 
 interface FurnitureItem {
   id: string
@@ -14,7 +15,7 @@ interface FurnitureItem {
   rotation: [number, number, number]
   scale: number
   modelUrl?: string
-  modelType?: 'glb' | 'obj'
+  modelType?: "glb" | "obj"
 }
 
 interface FurnitureObjectsProps {
@@ -23,14 +24,8 @@ interface FurnitureObjectsProps {
   onSelect: (id: string | null) => void
   onMove: (id: string, position: [number, number, number]) => void
   onRotate: (id: string, rotation: [number, number, number]) => void
-  transformMode: 'translate' | 'rotate' | 'scale'
+  transformMode: "translate" | "rotate"
   collisionDetector?: CollisionDetector
-  gridSnap?: number // Grid snap size in units (e.g., 0.1 = 10cm)
-}
-
-// Grid snap utility function
-function snapToGrid(value: number, gridSize: number): number {
-  return Math.round(value / gridSize) * gridSize
 }
 
 function FurnitureObject({
@@ -39,72 +34,138 @@ function FurnitureObject({
   onSelect,
   onMove,
   onRotate,
-  onScale,
   transformMode,
   collisionDetector,
-  gridSnap = 0.1, // Default 10cm grid
 }: {
   item: FurnitureItem
   isSelected: boolean
   onSelect: () => void
   onMove: (position: [number, number, number]) => void
   onRotate: (rotation: [number, number, number]) => void
-  onScale: (scale: number) => void
-  transformMode: 'translate' | 'rotate' | 'scale'
+  transformMode: "translate" | "rotate"
   collisionDetector?: CollisionDetector
-  gridSnap?: number
 }) {
   const groupRef = useRef<THREE.Group>(null)
   const transformRef = useRef<any>(null)
   const previousValidPosition = useRef<[number, number, number]>(item.position)
-  const previousValidRotation = useRef<[number, number, number]>(item.rotation)
-  const [isColliding, setIsColliding] = useState(false)
-  const isDragging = useRef(false)
+  const initialYPosition = useRef<number>(item.position[1])
+  const isDragging = useRef<boolean>(false)
+  const [isReady, setIsReady] = useState(false)
+  const { controls } = useThree()
 
-  // Store valid position when item changes (from parent state)
   useEffect(() => {
+    initialYPosition.current = item.position[1]
     previousValidPosition.current = item.position
-    previousValidRotation.current = item.rotation
-  }, [item.position, item.rotation])
+  }, [item.id])
 
   useEffect(() => {
-    const controls = transformRef.current
-    if (controls) {
-      const handleDraggingChanged = (event: any) => {
-        isDragging.current = event.value
+    if (groupRef.current) {
+      setIsReady(true)
+      groupRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.userData.clickable = true
+        }
+      })
+      console.log("[v0] Furniture group mounted:", item.id)
+    }
+  }, [item.type, item.modelUrl, item.id])
 
-        if (event.value) {
-          // Drag started - disable orbit controls
-          const orbitControls = controls.object?.parent?.parent?.__r3f?.handlers?.orbitControls
-          if (orbitControls) orbitControls.enabled = false
+  const handleClick = useCallback(
+    (e: any) => {
+      e.stopPropagation()
+      console.log("[v0] Furniture clicked:", item.id, item.type)
+      onSelect()
+    },
+    [onSelect, item.id, item.type],
+  )
+
+  const handleDragEnd = useCallback(() => {
+    console.log("[v0] Drag ended for:", item.id)
+    isDragging.current = false
+
+    if (groupRef.current) {
+      if (collisionDetector) {
+        const box = new THREE.Box3().setFromObject(groupRef.current)
+        const hasCollision = collisionDetector.checkCollisionFull(item.id, box)
+
+        if (hasCollision) {
+          console.log("[v0] Collision detected, reverting to:", previousValidPosition.current)
+          groupRef.current.position.set(...previousValidPosition.current)
         } else {
-          // Drag ended - enable orbit controls
-          const orbitControls = controls.object?.parent?.parent?.__r3f?.handlers?.orbitControls
-          if (orbitControls) orbitControls.enabled = true
+          const pos = groupRef.current.position
+          previousValidPosition.current = [pos.x, pos.y, pos.z]
+          console.log("[v0] No collision, new position saved:", previousValidPosition.current)
+        }
 
-          // If colliding when drag ends, revert to previous valid position
-          if (isColliding && groupRef.current) {
-            groupRef.current.position.set(...previousValidPosition.current)
-            groupRef.current.rotation.set(...previousValidRotation.current)
-            onMove(previousValidPosition.current)
-            onRotate(previousValidRotation.current)
-            setIsColliding(false)
-          } else if (groupRef.current) {
-            // Save current position as valid
-            const pos = groupRef.current.position
-            const rot = groupRef.current.rotation
-            previousValidPosition.current = [pos.x, pos.y, pos.z]
-            previousValidRotation.current = [rot.x, rot.y, rot.z]
-          }
+        const finalBox = new THREE.Box3().setFromObject(groupRef.current)
+        collisionDetector.registerFurniture(item.id, finalBox)
+      }
+
+      const pos = groupRef.current.position
+      const rot = groupRef.current.rotation
+
+      onMove([pos.x, pos.y, pos.z])
+      onRotate([rot.x, rot.y, rot.z])
+    }
+  }, [onMove, onRotate, collisionDetector, item.id])
+
+  useEffect(() => {
+    const transformControls = transformRef.current
+    if (!transformControls || !isSelected || !isReady) return
+
+    console.log("[v0] Setting up TransformControls for:", item.id, "mode:", transformMode)
+
+    const onDraggingChanged = (event: any) => {
+      console.log("[v0] Dragging changed:", event.value, "for:", item.id)
+
+      if (event.value) {
+        isDragging.current = true
+        if (controls) {
+          ;(controls as any).enabled = false
+          console.log("[v0] OrbitControls disabled")
+        }
+      } else {
+        if (controls) {
+          ;(controls as any).enabled = true
+          console.log("[v0] OrbitControls enabled")
+        }
+        handleDragEnd()
+      }
+    }
+
+    const onObjectChange = () => {
+      if (!groupRef.current || !collisionDetector || !isDragging.current) return
+
+      const pos = groupRef.current.position
+
+      const box = new THREE.Box3().setFromObject(groupRef.current)
+      const hasCollision = collisionDetector.checkCollisionFull(item.id, box)
+
+      if (hasCollision) {
+        console.log("[v0] Collision during drag, reverting")
+        groupRef.current.position.set(...previousValidPosition.current)
+        return
+      }
+
+      if (transformMode === "translate") {
+        const floorY = collisionDetector.getFloorHeightAt(pos.x, pos.z)
+        if (floorY !== null) {
+          pos.y = floorY
+          groupRef.current.position.y = floorY
         }
       }
 
-      controls.addEventListener('dragging-changed', handleDraggingChanged)
-      return () => {
-        controls.removeEventListener('dragging-changed', handleDraggingChanged)
-      }
+      previousValidPosition.current = [pos.x, pos.y, pos.z]
     }
-  }, [isSelected, isColliding, onMove, onRotate])
+
+    transformControls.addEventListener("dragging-changed", onDraggingChanged)
+    transformControls.addEventListener("objectChange", onObjectChange)
+
+    return () => {
+      transformControls.removeEventListener("dragging-changed", onDraggingChanged)
+      transformControls.removeEventListener("objectChange", onObjectChange)
+    }
+  }, [isSelected, isReady, transformMode, handleDragEnd, collisionDetector, item.id, controls])
 
   useEffect(() => {
     if (groupRef.current && collisionDetector) {
@@ -119,118 +180,108 @@ function FurnitureObject({
     }
   }, [item.id, item.position, item.rotation, item.scale, collisionDetector])
 
-  // Get color based on collision state
-  const getColor = (normalColor: string, selectedColor: string) => {
-    if (isColliding) return "#EF4444" // Red when colliding
-    return isSelected ? selectedColor : normalColor
-  }
-
-  // Render different furniture types
   const renderGeometry = () => {
     const commonProps = {
       castShadow: true,
       receiveShadow: true,
+      onClick: handleClick,
     }
 
     if (item.modelUrl && item.modelType) {
-      return <ModelLoader url={item.modelUrl} type={item.modelType} />
+      return <ModelLoader url={item.modelUrl} type={item.modelType} onClick={handleClick} />
     }
 
     switch (item.type) {
-      case 'chair':
+      case "chair":
         return (
           <group>
-            {/* Seat */}
-            <Box args={[0.8, 0.15, 0.8]} position={[0, 0.5, 0]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#8B4513", "#D97706")} />
+            <Box args={[0.5, 0.08, 0.5]} position={[0, 0.25, 0]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#D97706" : "#8B4513"} />
             </Box>
-            {/* Back */}
-            <Box args={[0.8, 0.9, 0.15]} position={[0, 1.0, -0.325]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#8B4513", "#D97706")} />
+            <Box args={[0.5, 0.5, 0.08]} position={[0, 0.54, -0.21]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#D97706" : "#A0522D"} />
             </Box>
-            {/* Legs */}
-            {[[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]].map((pos, i) => (
-              <Cylinder key={i} args={[0.08, 0.08, 0.5]} position={[pos[0], 0.25, pos[1]]} {...commonProps}>
-                <meshStandardMaterial color={getColor("#654321", "#B45309")} />
+            {[
+              [-0.2, -0.2],
+              [0.2, -0.2],
+              [-0.2, 0.2],
+              [0.2, 0.2],
+            ].map((pos, i) => (
+              <Cylinder key={i} args={[0.025, 0.025, 0.25]} position={[pos[0], 0.125, pos[1]]} {...commonProps}>
+                <meshStandardMaterial color={isSelected ? "#B45309" : "#654321"} />
               </Cylinder>
             ))}
           </group>
         )
-      case 'table':
+      case "table":
         return (
           <group>
-            {/* Top */}
-            <Box args={[2.5, 0.15, 1.5]} position={[0, 0.75, 0]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#A0522D", "#D97706")} />
+            <Box args={[1.2, 0.05, 0.8]} position={[0, 0.75, 0]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#D97706" : "#A0522D"} />
             </Box>
-            {/* Legs */}
-            {[[-1.1, -0.65], [1.1, -0.65], [-1.1, 0.65], [1.1, 0.65]].map((pos, i) => (
-              <Cylinder key={i} args={[0.08, 0.08, 0.7]} position={[pos[0], 0.35, pos[1]]} {...commonProps}>
-                <meshStandardMaterial color={getColor("#654321", "#B45309")} />
+            {[
+              [-0.55, -0.35],
+              [0.55, -0.35],
+              [-0.55, 0.35],
+              [0.55, 0.35],
+            ].map((pos, i) => (
+              <Cylinder key={i} args={[0.03, 0.03, 0.75]} position={[pos[0], 0.375, pos[1]]} {...commonProps}>
+                <meshStandardMaterial color={isSelected ? "#B45309" : "#654321"} />
               </Cylinder>
             ))}
           </group>
         )
-      case 'sofa':
+      case "sofa":
         return (
           <group>
-            {/* Seat */}
-            <Box args={[3.0, 0.7, 1.2]} position={[0, 0.5, 0]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#4A5568", "#3B82F6")} />
+            <Box args={[1.8, 0.4, 0.8]} position={[0, 0.4, 0]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#3B82F6" : "#4A5568"} />
             </Box>
-            {/* Back */}
-            <Box args={[3.0, 1.2, 0.3]} position={[0, 1.2, -0.45]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#4A5568", "#3B82F6")} />
+            <Box args={[1.8, 0.6, 0.2]} position={[0, 0.7, -0.3]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#3B82F6" : "#4A5568"} />
             </Box>
-            {/* Arms */}
-            {[-1.35, 1.35].map((x, i) => (
-              <Box key={i} args={[0.3, 0.9, 1.2]} position={[x, 0.7, 0]} {...commonProps}>
-                <meshStandardMaterial color={getColor("#4A5568", "#3B82F6")} />
+            {[-0.8, 0.8].map((x, i) => (
+              <Box key={i} args={[0.2, 0.5, 0.8]} position={[x, 0.5, 0]} {...commonProps}>
+                <meshStandardMaterial color={isSelected ? "#3B82F6" : "#4A5568"} />
               </Box>
             ))}
           </group>
         )
-      case 'lamp':
+      case "lamp":
         return (
           <group>
-            {/* Base */}
-            <Cylinder args={[0.3, 0.3, 0.08]} position={[0, 0.04, 0]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#2D3748", "#1E40AF")} />
+            <Cylinder args={[0.15, 0.15, 0.03]} position={[0, 0.015, 0]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#1E40AF" : "#2D3748"} />
             </Cylinder>
-            {/* Pole */}
-            <Cylinder args={[0.05, 0.05, 2.0]} position={[0, 1.1, 0]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#2D3748", "#1E40AF")} />
+            <Cylinder args={[0.02, 0.02, 1.5]} position={[0, 0.765, 0]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#1E40AF" : "#2D3748"} />
             </Cylinder>
-            {/* Shade */}
-            <Cylinder args={[0.4, 0.3, 0.5]} position={[0, 2.3, 0]} {...commonProps}>
-              <meshStandardMaterial
-                color={isColliding ? "#EF4444" : "#FBD38D"}
-                emissive={isColliding ? "#EF4444" : "#FBD38D"}
-                emissiveIntensity={0.3}
-              />
+            <Cylinder args={[0.25, 0.18, 0.35]} position={[0, 1.69, 0]} {...commonProps}>
+              <meshStandardMaterial color="#FBD38D" emissive="#FBD38D" emissiveIntensity={0.3} />
             </Cylinder>
-            <pointLight position={[0, 2.0, 0]} intensity={0.8} distance={7} />
+            <pointLight position={[0, 1.5, 0]} intensity={0.5} distance={5} />
           </group>
         )
-      case 'bed':
+      case "bed":
         return (
           <group>
-            {/* Mattress */}
-            <Box args={[2.5, 0.5, 3.5]} position={[0, 0.45, 0]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#E5E7EB", "#EF4444")} />
+            <Box args={[1.4, 0.3, 2.0]} position={[0, 0.3, 0]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#DC2626" : "#EF4444"} />
             </Box>
-            {/* Headboard */}
-            <Box args={[2.5, 1.2, 0.2]} position={[0, 0.9, -1.65]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#9CA3AF", "#DC2626")} />
+            <Box args={[1.4, 0.7, 0.1]} position={[0, 0.65, -0.95]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#B45309" : "#8B4513"} />
             </Box>
-            {/* Frame */}
-            <Box args={[2.6, 0.2, 3.6]} position={[0, 0.1, 0]} {...commonProps}>
-              <meshStandardMaterial color={getColor("#6B7280", "#B91C1C")} />
+            <Box args={[1.5, 0.1, 2.1]} position={[0, 0.05, 0]} {...commonProps}>
+              <meshStandardMaterial color={isSelected ? "#B45309" : "#654321"} />
             </Box>
-            {/* Legs */}
-            {[[-1.2, -1.7], [1.2, -1.7], [-1.2, 1.7], [1.2, 1.7]].map((pos, i) => (
-              <Cylinder key={i} args={[0.08, 0.08, 0.4]} position={[pos[0], 0, pos[1]]} {...commonProps}>
-                <meshStandardMaterial color={getColor("#4B5563", "#991B1B")} />
+            {[
+              [-0.7, -0.95],
+              [0.7, -0.95],
+              [-0.7, 0.95],
+              [0.7, 0.95],
+            ].map((pos, i) => (
+              <Cylinder key={i} args={[0.04, 0.04, 0.15]} position={[pos[0], 0.075, pos[1]]} {...commonProps}>
+                <meshStandardMaterial color={isSelected ? "#B45309" : "#654321"} />
               </Cylinder>
             ))}
           </group>
@@ -238,7 +289,7 @@ function FurnitureObject({
       default:
         return (
           <Box args={[0.5, 0.5, 0.5]} {...commonProps}>
-            <meshStandardMaterial color={getColor("#CBD5E0", "#3B82F6")} />
+            <meshStandardMaterial color={isSelected ? "#3B82F6" : "#CBD5E0"} />
           </Box>
         )
     }
@@ -246,76 +297,28 @@ function FurnitureObject({
 
   return (
     <>
-      <group
-        ref={groupRef}
-        position={item.position}
-        rotation={item.rotation}
-        scale={item.scale}
-        onClick={(e) => {
-          e.stopPropagation()
-          onSelect()
-        }}
-      >
+      <group ref={groupRef} position={item.position} rotation={item.rotation} scale={item.scale} onClick={handleClick}>
         {renderGeometry()}
       </group>
 
-      {isSelected && groupRef.current && (
+      {isSelected && isReady && (
         <TransformControls
           ref={transformRef}
-          object={groupRef.current}
+          object={groupRef.current!}
           mode={transformMode}
-          onObjectChange={() => {
-            if (groupRef.current) {
-              const pos = groupRef.current.position
-              const rot = groupRef.current.rotation
-              const scl = groupRef.current.scale
-
-              // Apply grid snapping for translate mode
-              if (transformMode === 'translate' && gridSnap > 0) {
-                pos.x = snapToGrid(pos.x, gridSnap)
-                pos.z = snapToGrid(pos.z, gridSnap)
-                groupRef.current.position.x = pos.x
-                groupRef.current.position.z = pos.z
-              }
-
-              if (collisionDetector) {
-                // Floor constraint
-                const floorHeight = collisionDetector.getFloorHeight() ?? 0
-                const box = new THREE.Box3().setFromObject(groupRef.current)
-                const minY = box.min.y
-
-                if (minY < floorHeight) {
-                  const correction = floorHeight - minY
-                  pos.y = pos.y + correction + 0.01
-                  groupRef.current.position.y = pos.y
-                }
-
-                // Check collision with other furniture
-                const updatedBox = new THREE.Box3().setFromObject(groupRef.current)
-                const hasCollision = collisionDetector.checkCollision(item.id, updatedBox)
-
-                // Update collision state for visual feedback
-                setIsColliding(hasCollision)
-
-                // Always update the bounding box in collision detector
-                if (!hasCollision) {
-                  collisionDetector.registerFurniture(item.id, updatedBox)
-                }
-              }
-
-              // Always update position/rotation for smooth dragging
-              onMove([pos.x, pos.y, pos.z])
-              onRotate([rot.x, rot.y, rot.z])
-              onScale((scl.x + scl.y + scl.z) / 3)
-            }
-          }}
+          size={1.5}
+          showX={true}
+          showY={transformMode === "translate"}
+          showZ={true}
+          enabled={true}
+          space="world"
         />
       )}
     </>
   )
 }
 
-export function FurnitureObjects({
+function FurnitureObjects({
   items,
   selectedId,
   onSelect,
@@ -323,7 +326,6 @@ export function FurnitureObjects({
   onRotate,
   transformMode,
   collisionDetector,
-  gridSnap = 0.1
 }: FurnitureObjectsProps & { collisionDetector?: CollisionDetector }) {
   return (
     <>
@@ -335,14 +337,12 @@ export function FurnitureObjects({
           onSelect={() => onSelect(item.id)}
           onMove={(pos) => onMove(item.id, pos)}
           onRotate={(rot) => onRotate(item.id, rot)}
-          onScale={(scale) => {
-            // This will be handled through the parent component
-          }}
           transformMode={transformMode}
           collisionDetector={collisionDetector}
-          gridSnap={gridSnap}
         />
       ))}
     </>
   )
 }
+
+export { FurnitureObjects }
