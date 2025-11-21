@@ -342,7 +342,7 @@ function FurnitureObject({
           mode={transformMode}
           size={1.5}
           showX={true}
-          showY={transformMode === "translate"}
+          showY={false}
           showZ={true}
           enabled={true}
           space="world"
