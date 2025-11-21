@@ -177,8 +177,7 @@ export class CollisionDetector {
     const intersects = this.raycaster.intersectObject(this.backgroundMesh, true)
 
     if (intersects.length >= 1) {
-      // Sort by distance (farthest first) to get the floor, not the ceiling
-      intersects.sort((a, b) => b.distance - a.distance)
+      intersects.sort((a, b) => a.distance - b.distance)
       return intersects[0].point.y
     }
 
