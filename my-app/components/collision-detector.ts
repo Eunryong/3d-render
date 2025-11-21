@@ -197,8 +197,10 @@ export class CollisionDetector {
 
     const heights = Array.from(this.floorHeightGrid.values())
     heights.sort((a, b) => a - b)
-    const medianIndex = Math.floor(heights.length / 2)
-    return heights[medianIndex]
+    // Use 10th percentile instead of median to get actual floor level
+    // This avoids high values from elevated surfaces in the scan
+    const floorIndex = Math.floor(heights.length * 0.1)
+    return heights[floorIndex]
   }
 
   registerFurniture(id: string, box: THREE.Box3) {
