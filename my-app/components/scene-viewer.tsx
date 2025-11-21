@@ -365,6 +365,7 @@ export function SceneViewer({
           onRotate={onRotateFurniture}
           transformMode={transformMode}
           collisionDetector={collisionDetector}
+          gridSnap={0.1} // 10cm grid snapping
         />
       </Canvas>
     </div>
