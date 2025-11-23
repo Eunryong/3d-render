@@ -139,6 +139,18 @@ function FurnitureObject({
       const pos = groupRef.current.position
 
       const box = new THREE.Box3().setFromObject(groupRef.current)
+      const furnitureSize = new THREE.Vector3()
+      box.getSize(furnitureSize)
+
+      // Clamp position to stay within X-Z bounds of space model
+      if (transformMode === "translate") {
+        const clamped = collisionDetector.clampToBounds(pos, furnitureSize)
+        if (clamped.x !== pos.x || clamped.z !== pos.z) {
+          groupRef.current.position.x = clamped.x
+          groupRef.current.position.z = clamped.z
+        }
+      }
+
       const hasCollision = collisionDetector.checkCollisionFull(item.id, box)
 
       if (hasCollision) {

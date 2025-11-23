@@ -177,6 +177,40 @@ export class CollisionDetector {
     return box
   }
 
+  // Check if position is within X-Z bounds of the space model
+  isWithinBounds(position: THREE.Vector3, furnitureSize: THREE.Vector3): boolean {
+    if (!this.backgroundBounds) return true
+
+    const halfWidth = furnitureSize.x / 2
+    const halfDepth = furnitureSize.z / 2
+
+    const bounds = this.backgroundBounds
+    return (
+      position.x - halfWidth >= bounds.min.x &&
+      position.x + halfWidth <= bounds.max.x &&
+      position.z - halfDepth >= bounds.min.z &&
+      position.z + halfDepth <= bounds.max.z
+    )
+  }
+
+  // Clamp position to stay within X-Z bounds
+  clampToBounds(position: THREE.Vector3, furnitureSize: THREE.Vector3): THREE.Vector3 {
+    if (!this.backgroundBounds) return position.clone()
+
+    const halfWidth = furnitureSize.x / 2
+    const halfDepth = furnitureSize.z / 2
+
+    const bounds = this.backgroundBounds
+    const clamped = position.clone()
+
+    // Clamp X
+    clamped.x = Math.max(bounds.min.x + halfWidth, Math.min(bounds.max.x - halfWidth, clamped.x))
+    // Clamp Z
+    clamped.z = Math.max(bounds.min.z + halfDepth, Math.min(bounds.max.z - halfDepth, clamped.z))
+
+    return clamped
+  }
+
   private buildFloorHeightGrid(): void {
     if (!this.backgroundMesh || !this.backgroundBounds) return
 
