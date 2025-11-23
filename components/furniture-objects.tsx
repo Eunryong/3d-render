@@ -137,6 +137,7 @@ function FurnitureObject({
       if (!groupRef.current || !collisionDetector || !isDragging.current) return
 
       const pos = groupRef.current.position
+      console.log("[v0] onObjectChange - current pos:", pos.x.toFixed(2), pos.y.toFixed(2), pos.z.toFixed(2))
 
       // Only clamp to bounds and snap to floor during drag
       // Collision check will happen at drag end
@@ -144,16 +145,24 @@ function FurnitureObject({
         const box = new THREE.Box3().setFromObject(groupRef.current)
         const furnitureSize = new THREE.Vector3()
         box.getSize(furnitureSize)
+        console.log("[v0] furniture size:", furnitureSize.x.toFixed(2), furnitureSize.y.toFixed(2), furnitureSize.z.toFixed(2))
 
         // Clamp position to stay within X-Z bounds of space model
+        const bounds = collisionDetector.getBackgroundBounds()
+        console.log("[v0] background bounds:", bounds ? `min(${bounds.min.x.toFixed(2)},${bounds.min.z.toFixed(2)}) max(${bounds.max.x.toFixed(2)},${bounds.max.z.toFixed(2)})` : "null")
+
         const clamped = collisionDetector.clampToBounds(pos, furnitureSize)
+        console.log("[v0] clamped pos:", clamped.x.toFixed(2), clamped.z.toFixed(2))
+
         if (clamped.x !== pos.x || clamped.z !== pos.z) {
           groupRef.current.position.x = clamped.x
           groupRef.current.position.z = clamped.z
+          console.log("[v0] position was clamped")
         }
 
         // Snap to floor
         const floorY = collisionDetector.getFloorHeightAt(pos.x, pos.z)
+        console.log("[v0] floorY:", floorY)
         if (floorY !== null) {
           groupRef.current.position.y = floorY
         }
