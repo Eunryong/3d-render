@@ -138,36 +138,26 @@ function FurnitureObject({
 
       const pos = groupRef.current.position
 
-      const box = new THREE.Box3().setFromObject(groupRef.current)
-      const furnitureSize = new THREE.Vector3()
-      box.getSize(furnitureSize)
-
-      // Clamp position to stay within X-Z bounds of space model
+      // Only clamp to bounds and snap to floor during drag
+      // Collision check will happen at drag end
       if (transformMode === "translate") {
+        const box = new THREE.Box3().setFromObject(groupRef.current)
+        const furnitureSize = new THREE.Vector3()
+        box.getSize(furnitureSize)
+
+        // Clamp position to stay within X-Z bounds of space model
         const clamped = collisionDetector.clampToBounds(pos, furnitureSize)
         if (clamped.x !== pos.x || clamped.z !== pos.z) {
           groupRef.current.position.x = clamped.x
           groupRef.current.position.z = clamped.z
         }
-      }
 
-      const hasCollision = collisionDetector.checkCollisionFull(item.id, box)
-
-      if (hasCollision) {
-        console.log("[v0] Collision during drag, reverting")
-        groupRef.current.position.set(...previousValidPosition.current)
-        return
-      }
-
-      if (transformMode === "translate") {
+        // Snap to floor
         const floorY = collisionDetector.getFloorHeightAt(pos.x, pos.z)
         if (floorY !== null) {
-          pos.y = floorY
           groupRef.current.position.y = floorY
         }
       }
-
-      previousValidPosition.current = [pos.x, pos.y, pos.z]
     }
 
     transformControls.addEventListener("dragging-changed", onDraggingChanged)
