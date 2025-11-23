@@ -109,6 +109,7 @@ export default function Home() {
       }
       setFurnitureItems([...furnitureItems, newItem])
       setSelectedId(newItem.id)
+      setViewMode("top")
       return
     }
 
@@ -130,6 +131,7 @@ export default function Home() {
     }
     setFurnitureItems([...furnitureItems, newItem])
     setSelectedId(newItem.id)
+    setViewMode("top") // Switch to top view to show placed furniture
   }
 
   const handleDeleteSelected = () => {
@@ -174,6 +176,7 @@ export default function Home() {
       }
       setFurnitureItems([...furnitureItems, newItem])
       setSelectedId(newItem.id)
+      setViewMode("top")
       return
     }
 
@@ -198,6 +201,7 @@ export default function Home() {
     }
     setFurnitureItems([...furnitureItems, newItem])
     setSelectedId(newItem.id)
+    setViewMode("top") // Switch to top view to show placed furniture
   }
 
   return (
