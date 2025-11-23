@@ -639,7 +639,33 @@ export function SceneViewer({
 
         {/* PLY Model */}
         <Suspense fallback={null}>
-          {plyFile && <PLYLoader file={plyFile} onMeshLoad={handleMeshLoad} />}
+          {plyFile && (
+            <PLYLoader
+              file={plyFile}
+              onMeshLoad={handleMeshLoad}
+              onPointerDown={(e) => {
+                pointerDownPos.current = { x: e.clientX, y: e.clientY }
+              }}
+              onClick={(e) => {
+                if (!measurementMode || !onAddMeasurementPoint) return
+                e.stopPropagation()
+                // Check if this was a drag or click
+                const downPos = pointerDownPos.current
+                if (downPos) {
+                  const dx = Math.abs(e.clientX - downPos.x)
+                  const dy = Math.abs(e.clientY - downPos.y)
+                  if (dx > 5 || dy > 5) {
+                    return
+                  }
+                }
+                const point = e.point
+                onAddMeasurementPoint({
+                  id: `measurement-${Date.now()}`,
+                  position: [point.x, point.y, point.z],
+                })
+              }}
+            />
+          )}
         </Suspense>
 
         <FurnitureObjects
