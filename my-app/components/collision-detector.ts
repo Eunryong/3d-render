@@ -402,9 +402,9 @@ export class CollisionDetector {
     const backgroundCenter = new THREE.Vector3()
     backgroundBox.getCenter(backgroundCenter)
 
-    // Use backgroundBox.min.y as floor since geometry may be centered
-    const floorY = backgroundBox.min.y
-    console.log("[v0] findValidPositionInside - using floorY:", floorY, "(backgroundBox.min.y)")
+    // Use cachedFloorHeight for consistent floor level (same as grid)
+    const floorY = this.cachedFloorHeight ?? backgroundBox.min.y
+    console.log("[v0] findValidPositionInside - using floorY:", floorY)
 
     // First, try the center position (only check furniture collision)
     const centerPos = new THREE.Vector3(backgroundCenter.x, floorY, backgroundCenter.z)

@@ -245,12 +245,11 @@ export function SceneViewer({
       const cellSize = 1 // 1 unit cells
       const sectionSize = 5 // 5x5 cell sections
       const fadeDistance = 30 // Fade at 30 units
-      // Use bounding box min.y for consistent floor level with furniture placement
-      const bounds = collisionDetector.getBackgroundBounds()
-      const floorHeight = bounds?.min.y ?? 0
+      // Use cachedFloorHeight for consistent floor level (lowest vertex Y for point clouds)
+      const floorHeight = collisionDetector.getFloorHeight() ?? 0
 
       setGridConfig({ cellSize, sectionSize, fadeDistance, floorHeight })
-      console.log("[Grid] Set fixed grid for normalized space:", { cellSize, sectionSize, fadeDistance, floorHeight })
+      console.log("[Grid] Set grid floor height:", floorHeight)
     },
     [collisionDetector, plyMesh],
   )
