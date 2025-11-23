@@ -429,6 +429,7 @@ export function SceneViewer({
   const [plyMesh, setPlyMesh] = useState<THREE.Mesh | THREE.Group | null>(null)
   const [backgroundTexture, setBackgroundTexture] = useState<THREE.Texture | null>(null)
   const [gridConfig, setGridConfig] = useState({ cellSize: 1, sectionSize: 5, fadeDistance: 30, floorHeight: 0 })
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null)
 
   // Calculate light color from color temperature
   const lightColor = useMemo(() => {
@@ -545,8 +546,24 @@ export function SceneViewer({
         <mesh
           position={[0, gridConfig.floorHeight - 0.01, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
+          onPointerDown={(e) => {
+            pointerDownPos.current = { x: e.clientX, y: e.clientY }
+          }}
           onClick={(e) => {
             e.stopPropagation()
+            // Check if this was a drag (significant mouse movement) or a click
+            const downPos = pointerDownPos.current
+            if (downPos) {
+              const dx = Math.abs(e.clientX - downPos.x)
+              const dy = Math.abs(e.clientY - downPos.y)
+              // If moved more than 5 pixels, consider it a drag, not a click
+              if (dx > 5 || dy > 5) {
+                pointerDownPos.current = null
+                return
+              }
+            }
+            pointerDownPos.current = null
+
             if (measurementMode && onAddMeasurementPoint) {
               const point = e.point
               onAddMeasurementPoint({
