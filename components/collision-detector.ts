@@ -193,20 +193,23 @@ export class CollisionDetector {
     )
   }
 
-  // Clamp position to stay within X-Z bounds
+  // Clamp position to stay within X-Z bounds (with wall padding)
   clampToBounds(position: THREE.Vector3, furnitureSize: THREE.Vector3): THREE.Vector3 {
     if (!this.backgroundBounds) return position.clone()
 
     const halfWidth = furnitureSize.x / 2
     const halfDepth = furnitureSize.z / 2
 
+    // Add padding for wall thickness (walls are approximately 0.25-0.5 units thick)
+    const wallPadding = 0.3
+
     const bounds = this.backgroundBounds
     const clamped = position.clone()
 
-    // Clamp X
-    clamped.x = Math.max(bounds.min.x + halfWidth, Math.min(bounds.max.x - halfWidth, clamped.x))
-    // Clamp Z
-    clamped.z = Math.max(bounds.min.z + halfDepth, Math.min(bounds.max.z - halfDepth, clamped.z))
+    // Clamp X (with wall padding on both sides)
+    clamped.x = Math.max(bounds.min.x + halfWidth + wallPadding, Math.min(bounds.max.x - halfWidth - wallPadding, clamped.x))
+    // Clamp Z (with wall padding on both sides)
+    clamped.z = Math.max(bounds.min.z + halfDepth + wallPadding, Math.min(bounds.max.z - halfDepth - wallPadding, clamped.z))
 
     return clamped
   }
