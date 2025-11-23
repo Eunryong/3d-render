@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
+// Next.js 16 프리렌더링 버그 우회 - 동적 렌더링 강제
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: '3D 인테리어 디자인 도구',
   description: 'PLY 파일을 업로드하고 가구를 배치하는 3D 인테리어 디자인 웹 애플리케이션',
