@@ -54,6 +54,15 @@ export default function Home() {
   })
   const [measurementMode, setMeasurementMode] = useState(false)
   const [measurementPoints, setMeasurementPoints] = useState<MeasurementPoint[]>([])
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Auto-dismiss error message
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [errorMessage])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -106,7 +115,7 @@ export default function Home() {
     const validPosition = collisionDetector.findValidPositionInside(furnitureSize)
 
     if (!validPosition) {
-      console.warn("Could not find valid position for furniture")
+      setErrorMessage("배치할 공간이 없습니다")
       return
     }
 
@@ -172,7 +181,7 @@ export default function Home() {
     const validPosition = collisionDetector.findValidPositionInside(customModelSize)
 
     if (!validPosition) {
-      console.warn("Could not find valid position for custom model")
+      setErrorMessage("배치할 공간이 없습니다")
       return
     }
 
@@ -233,6 +242,12 @@ export default function Home() {
           measurementPoints={measurementPoints}
           onAddMeasurementPoint={(point) => setMeasurementPoints([...measurementPoints, point])}
         />
+        {/* Error Toast */}
+        {errorMessage && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-red-600 text-white rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-2">
+            {errorMessage}
+          </div>
+        )}
       </main>
     </div>
   )
