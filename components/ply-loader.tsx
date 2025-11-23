@@ -10,6 +10,8 @@ interface PLYLoaderProps {
   file: File
   onMeshLoad?: (mesh: THREE.Mesh | THREE.Group) => void
   color?: string
+  onClick?: (event: any) => void
+  onPointerDown?: (event: any) => void
 }
 
 function LoadingIndicator({ progress, fileType }: { progress: number; fileType: string }) {
@@ -41,7 +43,7 @@ function LoadingIndicator({ progress, fileType }: { progress: number; fileType: 
   )
 }
 
-export function PLYLoader({ file, onMeshLoad, color = "#e0e0e0" }: PLYLoaderProps) {
+export function PLYLoader({ file, onMeshLoad, color = "#e0e0e0", onClick, onPointerDown }: PLYLoaderProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [model, setModel] = useState<THREE.Group | null>(null)
   const [progress, setProgress] = useState(0)
@@ -200,7 +202,7 @@ export function PLYLoader({ file, onMeshLoad, color = "#e0e0e0" }: PLYLoaderProp
   }
 
   if (model) {
-    return <primitive ref={groupRef} object={model} />
+    return <primitive ref={groupRef} object={model} onClick={onClick} onPointerDown={onPointerDown} />
   }
 
   if (!geometry) {
@@ -208,7 +210,7 @@ export function PLYLoader({ file, onMeshLoad, color = "#e0e0e0" }: PLYLoaderProp
   }
 
   return (
-    <mesh ref={meshRef} geometry={geometry} receiveShadow>
+    <mesh ref={meshRef} geometry={geometry} receiveShadow onClick={onClick} onPointerDown={onPointerDown}>
       <meshStandardMaterial color={color} side={THREE.DoubleSide} roughness={0.8} metalness={0.2} />
     </mesh>
   )

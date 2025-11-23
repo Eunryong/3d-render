@@ -343,12 +343,13 @@ function FurnitureObject({
           object={groupRef.current!}
           mode={transformMode}
           size={1.5}
-          showX={true}
-          showY={false}
-          showZ={true}
+          showX={transformMode === "translate"}
+          showY={transformMode === "rotate"}
+          showZ={transformMode === "translate"}
           enabled={true}
           space="world"
           translationSnap={0.125}
+          rotationSnap={Math.PI / 12}
         />
       )}
     </>

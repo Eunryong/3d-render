@@ -19,6 +19,17 @@ interface FurnitureItem {
   modelType?: "glb" | "obj"
 }
 
+export interface LightingSettings {
+  ambientIntensity: number
+  directionalIntensity: number
+  colorTemperature: number // 2700K (warm) to 6500K (cool)
+}
+
+export interface MeasurementPoint {
+  id: string
+  position: [number, number, number]
+}
+
 export default function Home() {
   const [plyFile, setPlyFile] = useState<File | null>(null)
   const {
@@ -35,6 +46,23 @@ export default function Home() {
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color")
   const [backgroundValue, setBackgroundValue] = useState("#f5f5f5")
   const [viewMode, setViewMode] = useState<ViewMode>("default")
+  const [viewTrigger, setViewTrigger] = useState(0)
+  const [lightingSettings, setLightingSettings] = useState<LightingSettings>({
+    ambientIntensity: 0.6,
+    directionalIntensity: 1.0,
+    colorTemperature: 4000, // Neutral white
+  })
+  const [measurementMode, setMeasurementMode] = useState(false)
+  const [measurementPoints, setMeasurementPoints] = useState<MeasurementPoint[]>([])
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Auto-dismiss error message
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [errorMessage])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -81,13 +109,14 @@ export default function Home() {
       }
       setFurnitureItems([...furnitureItems, newItem])
       setSelectedId(newItem.id)
+      setViewMode("top"); setViewTrigger((t) => t + 1)
       return
     }
 
     const validPosition = collisionDetector.findValidPositionInside(furnitureSize)
 
     if (!validPosition) {
-      console.warn("Could not find valid position for furniture")
+      setErrorMessage("배치할 공간이 없습니다")
       return
     }
 
@@ -102,6 +131,7 @@ export default function Home() {
     }
     setFurnitureItems([...furnitureItems, newItem])
     setSelectedId(newItem.id)
+    setViewMode("top"); setViewTrigger((t) => t + 1) // Switch to top view to show placed furniture
   }
 
   const handleDeleteSelected = () => {
@@ -146,6 +176,7 @@ export default function Home() {
       }
       setFurnitureItems([...furnitureItems, newItem])
       setSelectedId(newItem.id)
+      setViewMode("top"); setViewTrigger((t) => t + 1)
       return
     }
 
@@ -153,7 +184,7 @@ export default function Home() {
     const validPosition = collisionDetector.findValidPositionInside(customModelSize)
 
     if (!validPosition) {
-      console.warn("Could not find valid position for custom model")
+      setErrorMessage("배치할 공간이 없습니다")
       return
     }
 
@@ -170,6 +201,7 @@ export default function Home() {
     }
     setFurnitureItems([...furnitureItems, newItem])
     setSelectedId(newItem.id)
+    setViewMode("top"); setViewTrigger((t) => t + 1) // Switch to top view to show placed furniture
   }
 
   return (
@@ -185,10 +217,19 @@ export default function Home() {
         onRedo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
+        lightingSettings={lightingSettings}
+        onLightingChange={setLightingSettings}
+        measurementMode={measurementMode}
+        onMeasurementModeChange={setMeasurementMode}
+        measurementPoints={measurementPoints}
+        onClearMeasurements={() => setMeasurementPoints([])}
       />
       <main className="flex-1 relative">
         <TransformControlsPanel mode={transformMode} onModeChange={setTransformMode} selectedId={selectedId} />
-        <ViewControlsPanel viewMode={viewMode} onViewModeChange={setViewMode} />
+        <ViewControlsPanel viewMode={viewMode} onViewModeChange={(mode) => {
+          setViewMode(mode)
+          setViewTrigger((t) => t + 1)
+        }} />
         <SceneViewer
           plyFile={plyFile}
           furnitureItems={furnitureItems}
@@ -201,7 +242,25 @@ export default function Home() {
           backgroundType={backgroundType}
           backgroundValue={backgroundValue}
           viewMode={viewMode}
+          viewTrigger={viewTrigger}
+          lightingSettings={lightingSettings}
+          measurementMode={measurementMode}
+          measurementPoints={measurementPoints}
+          onAddMeasurementPoint={(point) => {
+            // Only allow 2 points - if already 2 points, start fresh with new point
+            if (measurementPoints.length >= 2) {
+              setMeasurementPoints([point])
+            } else {
+              setMeasurementPoints([...measurementPoints, point])
+            }
+          }}
         />
+        {/* Error Toast */}
+        {errorMessage && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-red-600 text-white rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-2">
+            {errorMessage}
+          </div>
+        )}
       </main>
     </div>
   )

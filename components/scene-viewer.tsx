@@ -1,13 +1,38 @@
 "use client"
 
-import { Canvas, useThree } from "@react-three/fiber"
-import { OrbitControls, PerspectiveCamera, Grid } from "@react-three/drei"
-import { Suspense, useRef, useState, useEffect, useCallback } from "react"
+import { Canvas, useThree, useFrame } from "@react-three/fiber"
+import { OrbitControls, PerspectiveCamera, Grid, Text, Line } from "@react-three/drei"
+import { Suspense, useRef, useState, useEffect, useCallback, useMemo } from "react"
 import { PLYLoader } from "./ply-loader"
 import { FurnitureObjects } from "./furniture-objects"
 import type { CollisionDetector } from "./collision-detector"
 import type { ViewMode } from "./view-controls-panel"
+import type { LightingSettings, MeasurementPoint } from "@/app/page"
 import * as THREE from "three"
+
+// Convert color temperature (Kelvin) to RGB color
+function kelvinToRGB(kelvin: number): THREE.Color {
+  const temp = kelvin / 100
+  let red, green, blue
+
+  if (temp <= 66) {
+    red = 255
+    green = Math.min(255, Math.max(0, 99.4708025861 * Math.log(temp) - 161.1195681661))
+  } else {
+    red = Math.min(255, Math.max(0, 329.698727446 * Math.pow(temp - 60, -0.1332047592)))
+    green = Math.min(255, Math.max(0, 288.1221695283 * Math.pow(temp - 60, -0.0755148492)))
+  }
+
+  if (temp >= 66) {
+    blue = 255
+  } else if (temp <= 19) {
+    blue = 0
+  } else {
+    blue = Math.min(255, Math.max(0, 138.5177312231 * Math.log(temp - 10) - 305.0447927307))
+  }
+
+  return new THREE.Color(red / 255, green / 255, blue / 255)
+}
 
 interface SceneViewerProps {
   plyFile: File | null
@@ -29,12 +54,18 @@ interface SceneViewerProps {
   backgroundType?: "color" | "image"
   backgroundValue?: string
   viewMode?: ViewMode
+  viewTrigger?: number
+  lightingSettings?: LightingSettings
+  measurementMode?: boolean
+  measurementPoints?: MeasurementPoint[]
+  onAddMeasurementPoint?: (point: MeasurementPoint) => void
 }
 
 function FurnitureFocusController({
   selectedId,
   furnitureItems,
   collisionDetector,
+  viewMode,
 }: {
   selectedId: string | null
   furnitureItems: Array<{
@@ -45,6 +76,7 @@ function FurnitureFocusController({
     scale: number
   }>
   collisionDetector: CollisionDetector
+  viewMode: ViewMode
 }) {
   const { camera, controls } = useThree()
   const prevSelectedIdRef = useRef<string | null>(null)
@@ -52,6 +84,11 @@ function FurnitureFocusController({
   useEffect(() => {
     if (!selectedId || !controls) return
     if (prevSelectedIdRef.current === selectedId) return
+    // Skip furniture focus when in top view (e.g., after placing furniture)
+    if (viewMode === "top") {
+      prevSelectedIdRef.current = selectedId
+      return
+    }
 
     const furniture = furnitureItems.find((item) => item.id === selectedId)
     if (!furniture) return
@@ -112,7 +149,7 @@ function FurnitureFocusController({
 
     animate()
     prevSelectedIdRef.current = selectedId
-  }, [selectedId, furnitureItems, camera, controls, collisionDetector])
+  }, [selectedId, furnitureItems, camera, controls, collisionDetector, viewMode])
 
   return null
 }
@@ -168,17 +205,16 @@ function CameraController({
 
 function ViewModeController({
   viewMode,
+  viewTrigger,
   collisionDetector,
 }: {
   viewMode: ViewMode
+  viewTrigger: number
   collisionDetector: CollisionDetector
 }) {
   const { camera, controls } = useThree()
-  const prevViewModeRef = useRef<ViewMode>(viewMode)
 
   useEffect(() => {
-    if (viewMode === prevViewModeRef.current) return
-
     const bounds = collisionDetector.getBackgroundBounds()
     const floorHeight = collisionDetector.getFloorHeight() ?? 0
 
@@ -208,35 +244,34 @@ function ViewModeController({
 
       case "firstPerson":
         // First person view - eye level inside the space
-        newPosition = new THREE.Vector3(center.x, floorHeight + 1.6, center.z + size.z * 0.3)
+        newPosition = new THREE.Vector3(center.x, floorHeight + 1.6, center.z + size.z * 0.2)
         newTarget = new THREE.Vector3(center.x, floorHeight + 1.6, center.z - size.z * 0.3)
         break
 
       case "thirdPerson":
-        // Third person view - slightly elevated behind
-        newPosition = new THREE.Vector3(center.x, floorHeight + 2.5, center.z + size.z * 0.6)
-        newTarget = new THREE.Vector3(center.x, floorHeight + 1, center.z)
+        // Third person view - inside the space, slightly elevated
+        newPosition = new THREE.Vector3(center.x, floorHeight + 2.0, center.z + size.z * 0.25)
+        newTarget = new THREE.Vector3(center.x, floorHeight + 1, center.z - size.z * 0.1)
         break
 
       case "birdEye":
-        // Bird's eye view - high angle diagonal
-        const birdHeight = Math.max(size.x, size.z) * 0.8
+        // Bird's eye view - high angle diagonal, inside space
+        const birdHeight = Math.max(size.x, size.z) * 0.6
         newPosition = new THREE.Vector3(
-          center.x + size.x * 0.5,
+          center.x + size.x * 0.2,
           center.y + birdHeight,
-          center.z + size.z * 0.5
+          center.z + size.z * 0.2
         )
         newTarget = center.clone()
         break
 
       case "default":
       default:
-        // Default perspective view
-        const defaultDist = Math.max(size.x, size.z) * 0.8
+        // Default perspective view - inside the space
         newPosition = new THREE.Vector3(
-          center.x + defaultDist * 0.7,
-          center.y + defaultDist * 0.5,
-          center.z + defaultDist * 0.7
+          center.x + size.x * 0.25,
+          floorHeight + size.y * 0.6,
+          center.z + size.z * 0.25
         )
         newTarget = center.clone()
         break
@@ -263,8 +298,7 @@ function ViewModeController({
     }
 
     animate()
-    prevViewModeRef.current = viewMode
-  }, [viewMode, camera, controls, collisionDetector])
+  }, [viewMode, viewTrigger, camera, controls, collisionDetector])
 
   return null
 }
@@ -297,6 +331,83 @@ function BackgroundSphere({ texture }: { texture: THREE.Texture | null }) {
   )
 }
 
+function MeasurementPreview({
+  startPoint,
+  floorHeight,
+}: {
+  startPoint: [number, number, number]
+  floorHeight: number
+}) {
+  const { camera, raycaster, pointer } = useThree()
+  const [mousePos, setMousePos] = useState<[number, number, number] | null>(null)
+  const planeRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -floorHeight))
+
+  useFrame(() => {
+    // Update plane height
+    planeRef.current.constant = -floorHeight
+
+    // Raycast to floor plane
+    raycaster.setFromCamera(pointer, camera)
+    const intersection = new THREE.Vector3()
+    const hit = raycaster.ray.intersectPlane(planeRef.current, intersection)
+
+    if (hit) {
+      setMousePos([intersection.x, intersection.y, intersection.z])
+    }
+  })
+
+  if (!mousePos) return null
+
+  const distance = Math.sqrt(
+    Math.pow(mousePos[0] - startPoint[0], 2) +
+    Math.pow(mousePos[1] - startPoint[1], 2) +
+    Math.pow(mousePos[2] - startPoint[2], 2)
+  )
+
+  // Raise points slightly above floor for visibility
+  const yOffset = 0.02
+  const lineStart: [number, number, number] = [startPoint[0], startPoint[1] + yOffset, startPoint[2]]
+  const lineEnd: [number, number, number] = [mousePos[0], mousePos[1] + yOffset, mousePos[2]]
+
+  const midX = (startPoint[0] + mousePos[0]) / 2
+  const midY = Math.max(startPoint[1], mousePos[1]) + 0.2
+  const midZ = (startPoint[2] + mousePos[2]) / 2
+
+  return (
+    <group renderOrder={999}>
+      {/* Preview line */}
+      <Line
+        points={[lineStart, lineEnd]}
+        color="#22c55e"
+        lineWidth={2}
+        dashed
+        dashSize={0.1}
+        gapSize={0.05}
+        depthTest={false}
+      />
+      {/* Preview end point */}
+      <mesh position={[mousePos[0], mousePos[1] + yOffset, mousePos[2]]} renderOrder={1000}>
+        <sphereGeometry args={[0.04, 16, 16]} />
+        <meshBasicMaterial color="#22c55e" transparent opacity={0.8} depthTest={false} />
+      </mesh>
+      {/* Preview distance label */}
+      <Text
+        position={[midX, midY, midZ]}
+        fontSize={0.12}
+        color="#22c55e"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.01}
+        outlineColor="white"
+        renderOrder={1001}
+        material-depthTest={false}
+      >
+        {distance.toFixed(2)}m
+      </Text>
+    </group>
+  )
+}
+
 export function SceneViewer({
   plyFile,
   furnitureItems,
@@ -309,10 +420,22 @@ export function SceneViewer({
   backgroundType = "color",
   backgroundValue = "#f5f5f5",
   viewMode = "default",
+  viewTrigger = 0,
+  lightingSettings,
+  measurementMode = false,
+  measurementPoints = [],
+  onAddMeasurementPoint,
 }: SceneViewerProps) {
   const [plyMesh, setPlyMesh] = useState<THREE.Mesh | THREE.Group | null>(null)
   const [backgroundTexture, setBackgroundTexture] = useState<THREE.Texture | null>(null)
   const [gridConfig, setGridConfig] = useState({ cellSize: 1, sectionSize: 5, fadeDistance: 30, floorHeight: 0 })
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null)
+
+  // Calculate light color from color temperature
+  const lightColor = useMemo(() => {
+    const temp = lightingSettings?.colorTemperature ?? 4000
+    return kelvinToRGB(temp)
+  }, [lightingSettings?.colorTemperature])
 
   const handleMeshLoad = useCallback(
     (meshOrGroup: THREE.Mesh | THREE.Group) => {
@@ -365,22 +488,31 @@ export function SceneViewer({
           selectedId={selectedId}
           furnitureItems={furnitureItems}
           collisionDetector={collisionDetector}
+          viewMode={viewMode}
         />
-        <ViewModeController viewMode={viewMode} collisionDetector={collisionDetector} />
+        <ViewModeController viewMode={viewMode} viewTrigger={viewTrigger} collisionDetector={collisionDetector} />
 
         {/* Background Sphere for images */}
         {backgroundTexture && <BackgroundSphere texture={backgroundTexture} />}
 
-        {/* Lighting - brighter for better visibility */}
-        <ambientLight intensity={0.6} />
+        {/* Lighting - dynamic based on settings */}
+        <ambientLight
+          intensity={lightingSettings?.ambientIntensity ?? 0.6}
+          color={lightColor}
+        />
         <directionalLight
           position={[10, 10, 5]}
-          intensity={1.2}
+          intensity={lightingSettings?.directionalIntensity ?? 1.2}
+          color={lightColor}
           castShadow
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
         />
-        <pointLight position={[-10, -10, -5]} intensity={0.4} />
+        <pointLight
+          position={[-10, -10, -5]}
+          intensity={(lightingSettings?.ambientIntensity ?? 0.6) * 0.5}
+          color={lightColor}
+        />
 
         {/* Grid - positioned at the raycasted floor height */}
         <Grid
@@ -410,22 +542,130 @@ export function SceneViewer({
           </mesh>
         )}
 
-        {/* Invisible click plane to deselect */}
+        {/* Invisible click plane for deselect and measurement */}
         <mesh
-          position={[0, -0.02, 0]}
+          position={[0, gridConfig.floorHeight - 0.01, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
+          onPointerDown={(e) => {
+            pointerDownPos.current = { x: e.clientX, y: e.clientY }
+          }}
           onClick={(e) => {
             e.stopPropagation()
-            onSelectFurniture(null)
+            // Check if this was a drag (significant mouse movement) or a click
+            const downPos = pointerDownPos.current
+            if (downPos) {
+              const dx = Math.abs(e.clientX - downPos.x)
+              const dy = Math.abs(e.clientY - downPos.y)
+              // If moved more than 5 pixels, consider it a drag, not a click
+              if (dx > 5 || dy > 5) {
+                pointerDownPos.current = null
+                return
+              }
+            }
+            pointerDownPos.current = null
+
+            if (measurementMode && onAddMeasurementPoint) {
+              const point = e.point
+              onAddMeasurementPoint({
+                id: `measurement-${Date.now()}`,
+                position: [point.x, point.y, point.z],
+              })
+            } else {
+              onSelectFurniture(null)
+            }
           }}
         >
-          <planeGeometry args={[100, 100]} />
+          <planeGeometry args={[200, 200]} />
           <meshBasicMaterial transparent opacity={0} />
         </mesh>
 
+        {/* Measurement Preview Line (follows mouse) */}
+        {measurementMode && measurementPoints.length === 1 && (
+          <MeasurementPreview
+            startPoint={measurementPoints[0].position}
+            floorHeight={gridConfig.floorHeight}
+          />
+        )}
+
+        {/* Measurement Points and Lines */}
+        {measurementPoints.length > 0 && (
+          <>
+            {/* Render measurement points */}
+            {measurementPoints.map((point, index) => (
+              <mesh key={point.id} position={point.position}>
+                <sphereGeometry args={[0.05, 16, 16]} />
+                <meshBasicMaterial color={index === 0 ? "#22c55e" : "#3b82f6"} />
+              </mesh>
+            ))}
+
+            {/* Render lines between points */}
+            {measurementPoints.length >= 2 && (
+              <Line
+                points={measurementPoints.map((p) => p.position)}
+                color="#3b82f6"
+                lineWidth={2}
+              />
+            )}
+
+            {/* Render distance labels between consecutive points */}
+            {measurementPoints.length >= 2 &&
+              measurementPoints.slice(1).map((point, index) => {
+                const prevPoint = measurementPoints[index]
+                const midX = (prevPoint.position[0] + point.position[0]) / 2
+                const midY = (prevPoint.position[1] + point.position[1]) / 2 + 0.15
+                const midZ = (prevPoint.position[2] + point.position[2]) / 2
+                const distance = Math.sqrt(
+                  Math.pow(point.position[0] - prevPoint.position[0], 2) +
+                    Math.pow(point.position[1] - prevPoint.position[1], 2) +
+                    Math.pow(point.position[2] - prevPoint.position[2], 2),
+                )
+                return (
+                  <Text
+                    key={`label-${index}`}
+                    position={[midX, midY, midZ]}
+                    fontSize={0.12}
+                    color="#3b82f6"
+                    anchorX="center"
+                    anchorY="middle"
+                    outlineWidth={0.01}
+                    outlineColor="white"
+                  >
+                    {distance.toFixed(2)}m
+                  </Text>
+                )
+              })}
+          </>
+        )}
+
         {/* PLY Model */}
         <Suspense fallback={null}>
-          {plyFile && <PLYLoader file={plyFile} onMeshLoad={handleMeshLoad} />}
+          {plyFile && (
+            <PLYLoader
+              file={plyFile}
+              onMeshLoad={handleMeshLoad}
+              onPointerDown={(e) => {
+                pointerDownPos.current = { x: e.clientX, y: e.clientY }
+              }}
+              onClick={(e) => {
+                if (!measurementMode || !onAddMeasurementPoint) return
+                e.stopPropagation()
+                // Check if this was a drag or click
+                const downPos = pointerDownPos.current
+                if (downPos) {
+                  const dx = Math.abs(e.clientX - downPos.x)
+                  const dy = Math.abs(e.clientY - downPos.y)
+                  if (dx > 5 || dy > 5) {
+                    return
+                  }
+                }
+                const point = e.point
+                onAddMeasurementPoint({
+                  id: `measurement-${Date.now()}`,
+                  position: [point.x, point.y, point.z],
+                })
+              }}
+            />
+          )}
         </Suspense>
 
         <FurnitureObjects
