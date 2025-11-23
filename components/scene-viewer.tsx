@@ -65,6 +65,7 @@ function FurnitureFocusController({
   selectedId,
   furnitureItems,
   collisionDetector,
+  viewMode,
 }: {
   selectedId: string | null
   furnitureItems: Array<{
@@ -75,6 +76,7 @@ function FurnitureFocusController({
     scale: number
   }>
   collisionDetector: CollisionDetector
+  viewMode: ViewMode
 }) {
   const { camera, controls } = useThree()
   const prevSelectedIdRef = useRef<string | null>(null)
@@ -82,6 +84,11 @@ function FurnitureFocusController({
   useEffect(() => {
     if (!selectedId || !controls) return
     if (prevSelectedIdRef.current === selectedId) return
+    // Skip furniture focus when in top view (e.g., after placing furniture)
+    if (viewMode === "top") {
+      prevSelectedIdRef.current = selectedId
+      return
+    }
 
     const furniture = furnitureItems.find((item) => item.id === selectedId)
     if (!furniture) return
@@ -142,7 +149,7 @@ function FurnitureFocusController({
 
     animate()
     prevSelectedIdRef.current = selectedId
-  }, [selectedId, furnitureItems, camera, controls, collisionDetector])
+  }, [selectedId, furnitureItems, camera, controls, collisionDetector, viewMode])
 
   return null
 }
@@ -403,6 +410,7 @@ export function SceneViewer({
           selectedId={selectedId}
           furnitureItems={furnitureItems}
           collisionDetector={collisionDetector}
+          viewMode={viewMode}
         />
         <ViewModeController viewMode={viewMode} viewTrigger={viewTrigger} collisionDetector={collisionDetector} />
 

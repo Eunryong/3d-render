@@ -5,7 +5,6 @@ import { SceneViewer } from "@/components/scene-viewer"
 import { Sidebar } from "@/components/sidebar"
 import { TransformControlsPanel } from "@/components/transform-controls-panel"
 import { ViewControlsPanel, type ViewMode } from "@/components/view-controls-panel"
-import { MeasurementPanel } from "@/components/measurement-panel"
 import * as THREE from "three"
 import { CollisionDetector } from "@/components/collision-detector"
 import { useHistory } from "@/hooks/use-history"
@@ -220,6 +219,10 @@ export default function Home() {
         canRedo={canRedo}
         lightingSettings={lightingSettings}
         onLightingChange={setLightingSettings}
+        measurementMode={measurementMode}
+        onMeasurementModeChange={setMeasurementMode}
+        measurementPoints={measurementPoints}
+        onClearMeasurements={() => setMeasurementPoints([])}
       />
       <main className="flex-1 relative">
         <TransformControlsPanel mode={transformMode} onModeChange={setTransformMode} selectedId={selectedId} />
@@ -227,12 +230,6 @@ export default function Home() {
           setViewMode(mode)
           setViewTrigger((t) => t + 1)
         }} />
-        <MeasurementPanel
-          measurementMode={measurementMode}
-          onMeasurementModeChange={setMeasurementMode}
-          measurementPoints={measurementPoints}
-          onClearMeasurements={() => setMeasurementPoints([])}
-        />
         <SceneViewer
           plyFile={plyFile}
           furnitureItems={furnitureItems}

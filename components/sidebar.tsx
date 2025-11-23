@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Slider } from "@/components/ui/slider"
-import { Upload, Sofa, Lamp, Table, Armchair, Trash2, Plus, Bed, Undo2, Redo2, Sun, Thermometer } from "lucide-react"
-import type { LightingSettings } from "@/app/page"
+import { Upload, Sofa, Lamp, Table, Armchair, Trash2, Plus, Bed, Undo2, Redo2, Sun, Thermometer, Ruler } from "lucide-react"
+import type { LightingSettings, MeasurementPoint } from "@/app/page"
 
 interface SidebarProps {
   onFileUpload: (file: File) => void
@@ -23,6 +23,10 @@ interface SidebarProps {
   canRedo?: boolean
   lightingSettings?: LightingSettings
   onLightingChange?: (settings: LightingSettings) => void
+  measurementMode?: boolean
+  onMeasurementModeChange?: (mode: boolean) => void
+  measurementPoints?: MeasurementPoint[]
+  onClearMeasurements?: () => void
 }
 
 export function Sidebar({
@@ -38,6 +42,10 @@ export function Sidebar({
   canRedo = false,
   lightingSettings,
   onLightingChange,
+  measurementMode = false,
+  onMeasurementModeChange,
+  measurementPoints = [],
+  onClearMeasurements,
 }: SidebarProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -241,6 +249,60 @@ export function Sidebar({
                     <span>차가움</span>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Measurement Tool */}
+          {onMeasurementModeChange && (
+            <div className="space-y-3">
+              <h2 className="font-semibold text-gray-950 dark:text-gray-50">거리 측정</h2>
+              <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 space-y-3">
+                <Button
+                  variant={measurementMode ? "default" : "outline"}
+                  size="sm"
+                  className={`w-full ${measurementMode ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                  onClick={() => onMeasurementModeChange(!measurementMode)}
+                >
+                  <Ruler className="w-4 h-4 mr-2" />
+                  {measurementMode ? "측정 모드 켜짐" : "측정 모드 시작"}
+                </Button>
+
+                {measurementMode && (
+                  <div className="text-sm space-y-2">
+                    {measurementPoints.length === 0 && (
+                      <p className="text-gray-500">시작점을 클릭하세요</p>
+                    )}
+                    {measurementPoints.length === 1 && (
+                      <p className="text-gray-500">끝점을 클릭하세요</p>
+                    )}
+                    {measurementPoints.length === 2 && (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500">측정 거리:</span>
+                          <span className="font-medium text-blue-600">
+                            {Math.sqrt(
+                              Math.pow(measurementPoints[1].position[0] - measurementPoints[0].position[0], 2) +
+                              Math.pow(measurementPoints[1].position[1] - measurementPoints[0].position[1], 2) +
+                              Math.pow(measurementPoints[1].position[2] - measurementPoints[0].position[2], 2)
+                            ).toFixed(2)}m
+                          </span>
+                        </div>
+                        {onClearMeasurements && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={onClearMeasurements}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            측정 초기화
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
