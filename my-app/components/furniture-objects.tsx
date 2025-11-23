@@ -346,6 +346,7 @@ function FurnitureObject({
           showZ={true}
           enabled={true}
           space="world"
+          translationSnap={0.125}
         />
       )}
     </>
