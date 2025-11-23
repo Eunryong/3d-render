@@ -101,9 +101,21 @@ export class CollisionDetector {
     this.backgroundMesh = mesh
     this.backgroundBounds = new THREE.Box3().setFromObject(mesh)
 
+    // Check if mesh has faces (index buffer) for raycasting
+    const geometry = mesh.geometry
+    const hasIndex = geometry && geometry.index && geometry.index.count > 0
+    console.log("[v0] Background mesh set, has faces:", hasIndex, "bounds:", this.backgroundBounds)
+
     this.buildFloorHeightGrid()
     this.cachedFloorHeight = this.calculateDefaultFloorHeight()
-    console.log("[v0] Floor height grid built, default height:", this.cachedFloorHeight)
+
+    // If no floor heights were sampled (point cloud), use bounding box min.y
+    if (this.cachedFloorHeight === null && this.backgroundBounds) {
+      this.cachedFloorHeight = this.backgroundBounds.min.y
+      console.log("[v0] No floor heights sampled, using bounds min.y:", this.cachedFloorHeight)
+    } else {
+      console.log("[v0] Floor height grid built, default height:", this.cachedFloorHeight)
+    }
   }
 
   getFloorHeight(): number | null {
@@ -155,15 +167,22 @@ export class CollisionDetector {
     const minZ = Math.floor(bounds.min.z / cellSize) * cellSize
     const maxZ = Math.ceil(bounds.max.z / cellSize) * cellSize
 
+    let sampledCount = 0
+    let totalSamples = 0
+
     for (let x = minX; x <= maxX; x += cellSize) {
       for (let z = minZ; z <= maxZ; z += cellSize) {
+        totalSamples++
         const floorY = this.sampleFloorHeight(x, z)
         if (floorY !== null) {
           const key = this.getGridKey(x, z)
           this.floorHeightGrid.set(key, floorY)
+          sampledCount++
         }
       }
     }
+
+    console.log("[v0] Floor sampling: found", sampledCount, "of", totalSamples, "samples")
   }
 
   private sampleFloorHeight(x: number, z: number): number | null {
