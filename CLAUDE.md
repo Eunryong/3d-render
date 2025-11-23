@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-이 파일은 Claude Code (claude.ai/code)가 이 저장소의 코드를 작업할 때 참고할 수 있는 가이드를 제공합니다.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 프로젝트 개요
 
@@ -74,11 +74,12 @@ app/page.tsx (루트 컴포넌트)
 
 ### 핵심 시스템
 
-**충돌 감지** ([components/collision-detector.ts](components/collision-detector.ts))
-- 레이캐스팅을 사용하여 가구와 배경 메시 간 충돌 감지
-- 가구 간 충돌은 바운딩 박스 교차를 사용
+**충돌 감지 및 공간 제약** ([components/collision-detector.ts](components/collision-detector.ts))
+- PLY 로드 시 레이캐스팅으로 바닥면 높이를 한 번 계산하여 캐싱 (`cachedFloorHeight`)
+- `getAdjustedBoundingBox()`: 바닥면 높이로 잘린 바운딩 박스 반환 (카메라/가구 제약에 사용)
+- 가구 간 충돌은 바운딩 박스 교차를 사용 (벽 충돌은 제거하여 성능 최적화)
 - `findValidPosition()`: 방 스캔 주변을 나선형 패턴으로 검색하여 배치 가능한 위치를 지능적으로 찾음
-- 드래그 작업 중 가구가 벽이나 다른 가구와 겹치지 않도록 방지
+- 가구가 바닥면 아래로 내려가지 않도록 `getFloorHeight()`로 제한
 
 **3D 모델 로딩** ([components/model-loader.tsx](components/model-loader.tsx))
 - GLB 및 OBJ 파일 형식 지원
@@ -86,9 +87,16 @@ app/page.tsx (루트 컴포넌트)
 - 로딩 중에는 플레이스홀더 큐브 표시
 
 **가구 타입** ([components/furniture-objects.tsx](components/furniture-objects.tsx))
-- 기본 제공 프리미티브: 의자, 테이블, 소파, 조명 (Three.js Box/Cylinder/Sphere로 구성)
+- 기본 제공 프리미티브: 의자, 테이블, 소파, 조명, 침대 (Three.js Box/Cylinder/Sphere로 구성)
 - 커스텀 모델: 사용자가 업로드한 GLB/OBJ 파일
 - 각 타입은 적절한 그림자와 재질을 가진 절차적 지오메트리를 보유
+- 이동 시 12.5 단위로 스냅 (`translationSnap={12.5}`)
+
+**카메라 제어** ([components/scene-viewer.tsx](components/scene-viewer.tsx))
+- `CameraController`: PLY 로드 시 조정된 바운딩 박스 내부에 카메라 배치 (바닥면 기준)
+- `FurnitureFocusController`: 가구 선택 시 해당 가구로 카메라 부드럽게 이동
+- 마우스 컨트롤: 좌클릭(회전), 중클릭(줌), 우클릭(이동)
+- Grid: 50x50 블록 단위, 12.5 셀 크기, 바닥면 높이에 배치
 
 **변형 컨트롤** ([components/transform-controls-panel.tsx](components/transform-controls-panel.tsx))
 - 키보드 단축키 제공 (G=이동, R=회전, S=크기조절)
@@ -128,7 +136,7 @@ Three.js가 브라우저 API를 필요로 하므로 모든 3D 컴포넌트는 `'
 - Three.js 객체는 오른손 좌표계(Y-up)를 사용
 - 위치, 회전, 크기는 튜플로 저장: `[x, y, z]`
 - 씬은 orbit controls, perspective camera, 그림자가 있는 directional lighting을 사용
-- Grid helper는 Y=0에서 1단위 셀로 무한 그리드를 표시
+- Grid: 50x50 블록 단위, 12.5 셀 크기로 바닥면 높이에 배치됨
 - 3D 동작을 수정할 때는 배경 메시(PLY)가 있을 때와 없을 때 모두 테스트
 
 ## 알려진 이슈
@@ -141,4 +149,6 @@ Three.js가 브라우저 API를 필요로 하므로 모든 3D 컴포넌트는 `'
 ### 성능 최적화
 - PLY 파일이 클 경우 초기 로딩 시간이 길어질 수 있음
 - 가구 개수가 많을 경우(50개 이상) 프레임 드롭 가능
-- 충돌 감지는 매 프레임 실행되므로 복잡한 메시에서는 성능 영향 있음
+- 레이캐스팅은 PLY 로드 시 한 번만 실행 (바닥면 높이 캐싱)
+- 카메라 제약은 50ms 쓰로틀링으로 성능 최적화
+- 벽 충돌 감지는 제거됨 (바운딩 박스만 사용)
