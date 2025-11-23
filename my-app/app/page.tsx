@@ -34,7 +34,6 @@ export default function Home() {
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color")
   const [backgroundValue, setBackgroundValue] = useState("#f5f5f5")
   const [floorOrientation, setFloorOrientation] = useState<"Y" | "X" | "Z">("Y")
-  const [plyColor, setPlyColor] = useState("#ffffff")
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -187,9 +186,6 @@ export default function Home() {
         onRedo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
-        plyColor={plyColor}
-        onPlyColorChange={setPlyColor}
-        hasPlyFile={!!plyFile}
       />
       <main className="flex-1 relative">
         <TransformControlsPanel mode={transformMode} onModeChange={setTransformMode} selectedId={selectedId} />
@@ -205,7 +201,6 @@ export default function Home() {
           backgroundType={backgroundType}
           backgroundValue={backgroundValue}
           floorOrientation={floorOrientation}
-          plyColor={plyColor}
         />
       </main>
     </div>

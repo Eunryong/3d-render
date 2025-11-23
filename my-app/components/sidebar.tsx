@@ -21,9 +21,6 @@ interface SidebarProps {
   onRedo?: () => void
   canUndo?: boolean
   canRedo?: boolean
-  plyColor?: string
-  onPlyColorChange?: (color: string) => void
-  hasPlyFile?: boolean
 }
 
 export function Sidebar({
@@ -39,9 +36,6 @@ export function Sidebar({
   onRedo,
   canUndo = false,
   canRedo = false,
-  plyColor = "#ffffff",
-  onPlyColorChange,
-  hasPlyFile = false,
 }: SidebarProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -157,37 +151,6 @@ export function Sidebar({
               </div>
             </div>
           </div>
-
-          {hasPlyFile && (
-            <div className="space-y-3">
-              <h2 className="font-semibold text-gray-950 dark:text-gray-50">공간 모델 색상</h2>
-              <div className="space-y-2">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  PLY 모델에 vertex color가 없는 경우 여기서 색상을 선택하세요
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={plyColor}
-                    onChange={(e) => onPlyColorChange?.(e.target.value)}
-                    className="w-12 h-12 rounded-lg cursor-pointer border border-gray-300 dark:border-gray-700"
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    {["#ffffff", "#f5f5f5", "#e8d5b7", "#c9b896", "#a0937d", "#808080", "#4a5568", "#2d3748"].map(
-                      (color) => (
-                        <button
-                          key={color}
-                          className="w-8 h-8 rounded border border-gray-300 dark:border-gray-700 hover:scale-110 transition-transform"
-                          style={{ backgroundColor: color }}
-                          onClick={() => onPlyColorChange?.(color)}
-                        />
-                      ),
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Furniture Library */}
           <div className="space-y-3">

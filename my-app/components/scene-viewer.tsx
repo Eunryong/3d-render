@@ -28,7 +28,6 @@ interface SceneViewerProps {
   backgroundType?: "color" | "image"
   backgroundValue?: string
   floorOrientation?: "Y" | "X" | "Z"
-  plyColor?: string
 }
 
 function FurnitureFocusController({
@@ -206,7 +205,6 @@ export function SceneViewer({
   backgroundType = "color",
   backgroundValue = "#f5f5f5",
   floorOrientation = "Y",
-  plyColor = "#ffffff",
 }: SceneViewerProps) {
   const [plyMesh, setPlyMesh] = useState<THREE.Mesh | THREE.Group | null>(null)
   const [backgroundTexture, setBackgroundTexture] = useState<THREE.Texture | null>(null)
@@ -339,7 +337,7 @@ export function SceneViewer({
 
         {/* PLY Model */}
         <Suspense fallback={null}>
-          {plyFile && <PLYLoader file={plyFile} onMeshLoad={handleMeshLoad} color={plyColor} />}
+          {plyFile && <PLYLoader file={plyFile} onMeshLoad={handleMeshLoad} />}
         </Suspense>
 
         <FurnitureObjects
