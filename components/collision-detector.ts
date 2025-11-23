@@ -272,8 +272,11 @@ export class CollisionDetector {
     const intersects = this.raycaster.intersectObject(this.backgroundMesh, true)
 
     if (intersects.length >= 1) {
+      // Sort by distance (closest first)
       intersects.sort((a, b) => a.distance - b.distance)
-      return intersects[0].point.y
+      // Return the LAST intersection (floor) instead of first (ceiling)
+      // When raycasting from above through a room, the last hit is the floor
+      return intersects[intersects.length - 1].point.y
     }
 
     return null
@@ -362,7 +365,9 @@ export class CollisionDetector {
     const intersects = this.raycaster.intersectObject(this.backgroundMesh, true)
 
     if (intersects.length > 0) {
-      return intersects[0].point.y
+      // Sort and return the last intersection (floor) instead of first (ceiling)
+      intersects.sort((a, b) => a.distance - b.distance)
+      return intersects[intersects.length - 1].point.y
     }
 
     return null
