@@ -106,16 +106,38 @@ export class CollisionDetector {
     const hasIndex = geometry && geometry.index && geometry.index.count > 0
     console.log("[v0] Background mesh set, has faces:", hasIndex, "bounds:", this.backgroundBounds)
 
-    this.buildFloorHeightGrid()
-    this.cachedFloorHeight = this.calculateDefaultFloorHeight()
+    if (hasIndex) {
+      // Has faces - use raycasting for floor detection
+      this.buildFloorHeightGrid()
+      this.cachedFloorHeight = this.calculateDefaultFloorHeight()
+    } else {
+      // Point cloud - find lowest Y from vertices
+      this.cachedFloorHeight = this.findLowestVertexY(geometry)
+      console.log("[v0] Point cloud detected, found lowest Y from vertices:", this.cachedFloorHeight)
+    }
 
-    // If no floor heights were sampled (point cloud), use bounding box min.y
+    // Fallback to bounding box min.y
     if (this.cachedFloorHeight === null && this.backgroundBounds) {
       this.cachedFloorHeight = this.backgroundBounds.min.y
-      console.log("[v0] No floor heights sampled, using bounds min.y:", this.cachedFloorHeight)
+      console.log("[v0] Fallback to bounds min.y:", this.cachedFloorHeight)
     } else {
-      console.log("[v0] Floor height grid built, default height:", this.cachedFloorHeight)
+      console.log("[v0] Floor height set to:", this.cachedFloorHeight)
     }
+  }
+
+  private findLowestVertexY(geometry: THREE.BufferGeometry): number | null {
+    const positionAttr = geometry.getAttribute("position")
+    if (!positionAttr) return null
+
+    let minY = Infinity
+    for (let i = 0; i < positionAttr.count; i++) {
+      const y = positionAttr.getY(i)
+      if (y < minY) {
+        minY = y
+      }
+    }
+
+    return minY === Infinity ? null : minY
   }
 
   getFloorHeight(): number | null {
