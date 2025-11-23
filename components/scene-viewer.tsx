@@ -364,39 +364,47 @@ function MeasurementPreview({
     Math.pow(mousePos[2] - startPoint[2], 2)
   )
 
+  // Raise points slightly above floor for visibility
+  const yOffset = 0.02
+  const lineStart: [number, number, number] = [startPoint[0], startPoint[1] + yOffset, startPoint[2]]
+  const lineEnd: [number, number, number] = [mousePos[0], mousePos[1] + yOffset, mousePos[2]]
+
   const midX = (startPoint[0] + mousePos[0]) / 2
-  const midY = (startPoint[1] + mousePos[1]) / 2 + 0.15
+  const midY = Math.max(startPoint[1], mousePos[1]) + 0.2
   const midZ = (startPoint[2] + mousePos[2]) / 2
 
   return (
-    <>
+    <group renderOrder={999}>
       {/* Preview line */}
       <Line
-        points={[startPoint, mousePos]}
+        points={[lineStart, lineEnd]}
         color="#22c55e"
         lineWidth={2}
         dashed
         dashSize={0.1}
         gapSize={0.05}
+        depthTest={false}
       />
       {/* Preview end point */}
-      <mesh position={mousePos}>
+      <mesh position={[mousePos[0], mousePos[1] + yOffset, mousePos[2]]} renderOrder={1000}>
         <sphereGeometry args={[0.04, 16, 16]} />
-        <meshBasicMaterial color="#22c55e" transparent opacity={0.6} />
+        <meshBasicMaterial color="#22c55e" transparent opacity={0.8} depthTest={false} />
       </mesh>
       {/* Preview distance label */}
       <Text
         position={[midX, midY, midZ]}
-        fontSize={0.1}
+        fontSize={0.12}
         color="#22c55e"
         anchorX="center"
         anchorY="middle"
         outlineWidth={0.01}
         outlineColor="white"
+        renderOrder={1001}
+        material-depthTest={false}
       >
         {distance.toFixed(2)}m
       </Text>
-    </>
+    </group>
   )
 }
 
