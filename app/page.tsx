@@ -47,6 +47,7 @@ export default function Home() {
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color")
   const [backgroundValue, setBackgroundValue] = useState("#f5f5f5")
   const [viewMode, setViewMode] = useState<ViewMode>("default")
+  const [viewTrigger, setViewTrigger] = useState(0)
   const [lightingSettings, setLightingSettings] = useState<LightingSettings>({
     ambientIntensity: 0.6,
     directionalIntensity: 1.0,
@@ -109,7 +110,7 @@ export default function Home() {
       }
       setFurnitureItems([...furnitureItems, newItem])
       setSelectedId(newItem.id)
-      setViewMode("top")
+      setViewMode("top"); setViewTrigger((t) => t + 1)
       return
     }
 
@@ -131,7 +132,7 @@ export default function Home() {
     }
     setFurnitureItems([...furnitureItems, newItem])
     setSelectedId(newItem.id)
-    setViewMode("top") // Switch to top view to show placed furniture
+    setViewMode("top"); setViewTrigger((t) => t + 1) // Switch to top view to show placed furniture
   }
 
   const handleDeleteSelected = () => {
@@ -176,7 +177,7 @@ export default function Home() {
       }
       setFurnitureItems([...furnitureItems, newItem])
       setSelectedId(newItem.id)
-      setViewMode("top")
+      setViewMode("top"); setViewTrigger((t) => t + 1)
       return
     }
 
@@ -201,7 +202,7 @@ export default function Home() {
     }
     setFurnitureItems([...furnitureItems, newItem])
     setSelectedId(newItem.id)
-    setViewMode("top") // Switch to top view to show placed furniture
+    setViewMode("top"); setViewTrigger((t) => t + 1) // Switch to top view to show placed furniture
   }
 
   return (
@@ -222,7 +223,10 @@ export default function Home() {
       />
       <main className="flex-1 relative">
         <TransformControlsPanel mode={transformMode} onModeChange={setTransformMode} selectedId={selectedId} />
-        <ViewControlsPanel viewMode={viewMode} onViewModeChange={setViewMode} />
+        <ViewControlsPanel viewMode={viewMode} onViewModeChange={(mode) => {
+          setViewMode(mode)
+          setViewTrigger((t) => t + 1)
+        }} />
         <MeasurementPanel
           measurementMode={measurementMode}
           onMeasurementModeChange={setMeasurementMode}
@@ -241,6 +245,7 @@ export default function Home() {
           backgroundType={backgroundType}
           backgroundValue={backgroundValue}
           viewMode={viewMode}
+          viewTrigger={viewTrigger}
           lightingSettings={lightingSettings}
           measurementMode={measurementMode}
           measurementPoints={measurementPoints}

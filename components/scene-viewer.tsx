@@ -54,6 +54,7 @@ interface SceneViewerProps {
   backgroundType?: "color" | "image"
   backgroundValue?: string
   viewMode?: ViewMode
+  viewTrigger?: number
   lightingSettings?: LightingSettings
   measurementMode?: boolean
   measurementPoints?: MeasurementPoint[]
@@ -197,17 +198,16 @@ function CameraController({
 
 function ViewModeController({
   viewMode,
+  viewTrigger,
   collisionDetector,
 }: {
   viewMode: ViewMode
+  viewTrigger: number
   collisionDetector: CollisionDetector
 }) {
   const { camera, controls } = useThree()
-  const prevViewModeRef = useRef<ViewMode>(viewMode)
 
   useEffect(() => {
-    if (viewMode === prevViewModeRef.current) return
-
     const bounds = collisionDetector.getBackgroundBounds()
     const floorHeight = collisionDetector.getFloorHeight() ?? 0
 
@@ -237,35 +237,34 @@ function ViewModeController({
 
       case "firstPerson":
         // First person view - eye level inside the space
-        newPosition = new THREE.Vector3(center.x, floorHeight + 1.6, center.z + size.z * 0.3)
+        newPosition = new THREE.Vector3(center.x, floorHeight + 1.6, center.z + size.z * 0.2)
         newTarget = new THREE.Vector3(center.x, floorHeight + 1.6, center.z - size.z * 0.3)
         break
 
       case "thirdPerson":
-        // Third person view - slightly elevated behind
-        newPosition = new THREE.Vector3(center.x, floorHeight + 2.5, center.z + size.z * 0.6)
-        newTarget = new THREE.Vector3(center.x, floorHeight + 1, center.z)
+        // Third person view - inside the space, slightly elevated
+        newPosition = new THREE.Vector3(center.x, floorHeight + 2.0, center.z + size.z * 0.25)
+        newTarget = new THREE.Vector3(center.x, floorHeight + 1, center.z - size.z * 0.1)
         break
 
       case "birdEye":
-        // Bird's eye view - high angle diagonal
-        const birdHeight = Math.max(size.x, size.z) * 0.8
+        // Bird's eye view - high angle diagonal, inside space
+        const birdHeight = Math.max(size.x, size.z) * 0.6
         newPosition = new THREE.Vector3(
-          center.x + size.x * 0.5,
+          center.x + size.x * 0.2,
           center.y + birdHeight,
-          center.z + size.z * 0.5
+          center.z + size.z * 0.2
         )
         newTarget = center.clone()
         break
 
       case "default":
       default:
-        // Default perspective view
-        const defaultDist = Math.max(size.x, size.z) * 0.8
+        // Default perspective view - inside the space
         newPosition = new THREE.Vector3(
-          center.x + defaultDist * 0.7,
-          center.y + defaultDist * 0.5,
-          center.z + defaultDist * 0.7
+          center.x + size.x * 0.25,
+          floorHeight + size.y * 0.6,
+          center.z + size.z * 0.25
         )
         newTarget = center.clone()
         break
@@ -292,8 +291,7 @@ function ViewModeController({
     }
 
     animate()
-    prevViewModeRef.current = viewMode
-  }, [viewMode, camera, controls, collisionDetector])
+  }, [viewMode, viewTrigger, camera, controls, collisionDetector])
 
   return null
 }
@@ -338,6 +336,7 @@ export function SceneViewer({
   backgroundType = "color",
   backgroundValue = "#f5f5f5",
   viewMode = "default",
+  viewTrigger = 0,
   lightingSettings,
   measurementMode = false,
   measurementPoints = [],
@@ -405,7 +404,7 @@ export function SceneViewer({
           furnitureItems={furnitureItems}
           collisionDetector={collisionDetector}
         />
-        <ViewModeController viewMode={viewMode} collisionDetector={collisionDetector} />
+        <ViewModeController viewMode={viewMode} viewTrigger={viewTrigger} collisionDetector={collisionDetector} />
 
         {/* Background Sphere for images */}
         {backgroundTexture && <BackgroundSphere texture={backgroundTexture} />}
