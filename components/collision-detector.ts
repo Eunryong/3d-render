@@ -97,22 +97,42 @@ export class CollisionDetector {
   private lastCheckTime = 0
   private throttleMs = 16
 
-  setBackgroundMesh(mesh: THREE.Mesh) {
-    this.backgroundMesh = mesh
-    this.backgroundBounds = new THREE.Box3().setFromObject(mesh)
+  setBackgroundMesh(meshOrGroup: THREE.Mesh | THREE.Group) {
+    // Store the object for raycasting (works with both Mesh and Group)
+    this.backgroundMesh = meshOrGroup as THREE.Mesh
 
-    // Check if mesh has faces (index buffer) for raycasting
-    const geometry = mesh.geometry
-    const hasIndex = geometry && geometry.index && geometry.index.count > 0
+    // Calculate bounds from the ENTIRE object (including all children for Groups)
+    this.backgroundBounds = new THREE.Box3().setFromObject(meshOrGroup)
+    console.log("[v0] Background bounds calculated:", this.backgroundBounds)
+
+    // Check if we have faces for raycasting - check first mesh in group
+    let hasIndex = false
+    let firstGeometry: THREE.BufferGeometry | null = null
+
+    if ((meshOrGroup as THREE.Mesh).isMesh) {
+      const mesh = meshOrGroup as THREE.Mesh
+      firstGeometry = mesh.geometry
+      hasIndex = !!(firstGeometry && firstGeometry.index && firstGeometry.index.count > 0)
+    } else {
+      // Find first mesh in group to check for faces
+      meshOrGroup.traverse((child) => {
+        if (!firstGeometry && (child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh
+          firstGeometry = mesh.geometry
+          hasIndex = !!(firstGeometry && firstGeometry.index && firstGeometry.index.count > 0)
+        }
+      })
+    }
+
     console.log("[v0] Background mesh set, has faces:", hasIndex, "bounds:", this.backgroundBounds)
 
     if (hasIndex) {
       // Has faces - use raycasting for floor detection
       this.buildFloorHeightGrid()
       this.cachedFloorHeight = this.calculateDefaultFloorHeight()
-    } else {
+    } else if (firstGeometry) {
       // Point cloud - find lowest Y from vertices
-      this.cachedFloorHeight = this.findLowestVertexY(geometry)
+      this.cachedFloorHeight = this.findLowestVertexY(firstGeometry)
       console.log("[v0] Point cloud detected, found lowest Y from vertices:", this.cachedFloorHeight)
     }
 
@@ -193,20 +213,23 @@ export class CollisionDetector {
     )
   }
 
-  // Clamp position to stay within X-Z bounds
+  // Clamp position to stay within X-Z bounds (with wall padding)
   clampToBounds(position: THREE.Vector3, furnitureSize: THREE.Vector3): THREE.Vector3 {
     if (!this.backgroundBounds) return position.clone()
 
     const halfWidth = furnitureSize.x / 2
     const halfDepth = furnitureSize.z / 2
 
+    // Add padding for wall thickness (walls are approximately 0.25-0.5 units thick)
+    const wallPadding = 0.3
+
     const bounds = this.backgroundBounds
     const clamped = position.clone()
 
-    // Clamp X
-    clamped.x = Math.max(bounds.min.x + halfWidth, Math.min(bounds.max.x - halfWidth, clamped.x))
-    // Clamp Z
-    clamped.z = Math.max(bounds.min.z + halfDepth, Math.min(bounds.max.z - halfDepth, clamped.z))
+    // Clamp X (with wall padding on both sides)
+    clamped.x = Math.max(bounds.min.x + halfWidth + wallPadding, Math.min(bounds.max.x - halfWidth - wallPadding, clamped.x))
+    // Clamp Z (with wall padding on both sides)
+    clamped.z = Math.max(bounds.min.z + halfDepth + wallPadding, Math.min(bounds.max.z - halfDepth - wallPadding, clamped.z))
 
     return clamped
   }

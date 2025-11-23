@@ -321,27 +321,9 @@ export function SceneViewer({
 
       console.log("[v0] Background mesh loaded, setting up collision detection")
 
-      // Get the first mesh from the group if it's a group
-      let mesh: THREE.Mesh
-      if ((meshOrGroup as THREE.Mesh).isMesh) {
-        mesh = meshOrGroup as THREE.Mesh
-      } else {
-        // Find first mesh in the group
-        let foundMesh: THREE.Mesh | null = null
-        meshOrGroup.traverse((child) => {
-          if (!foundMesh && (child as THREE.Mesh).isMesh) {
-            foundMesh = child as THREE.Mesh
-          }
-        })
-        if (foundMesh) {
-          mesh = foundMesh
-        } else {
-          console.warn("No mesh found in group")
-          return
-        }
-      }
-
-      collisionDetector.setBackgroundMesh(mesh)
+      // Pass the entire object (Mesh or Group) to collision detector
+      // This ensures bounds are calculated from ALL meshes, not just the first one
+      collisionDetector.setBackgroundMesh(meshOrGroup)
       setPlyMesh(meshOrGroup)
 
       // Since PLY is now normalized to ~20 units, use fixed grid settings
