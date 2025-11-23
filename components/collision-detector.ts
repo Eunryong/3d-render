@@ -97,22 +97,42 @@ export class CollisionDetector {
   private lastCheckTime = 0
   private throttleMs = 16
 
-  setBackgroundMesh(mesh: THREE.Mesh) {
-    this.backgroundMesh = mesh
-    this.backgroundBounds = new THREE.Box3().setFromObject(mesh)
+  setBackgroundMesh(meshOrGroup: THREE.Mesh | THREE.Group) {
+    // Store the object for raycasting (works with both Mesh and Group)
+    this.backgroundMesh = meshOrGroup as THREE.Mesh
 
-    // Check if mesh has faces (index buffer) for raycasting
-    const geometry = mesh.geometry
-    const hasIndex = geometry && geometry.index && geometry.index.count > 0
+    // Calculate bounds from the ENTIRE object (including all children for Groups)
+    this.backgroundBounds = new THREE.Box3().setFromObject(meshOrGroup)
+    console.log("[v0] Background bounds calculated:", this.backgroundBounds)
+
+    // Check if we have faces for raycasting - check first mesh in group
+    let hasIndex = false
+    let firstGeometry: THREE.BufferGeometry | null = null
+
+    if ((meshOrGroup as THREE.Mesh).isMesh) {
+      const mesh = meshOrGroup as THREE.Mesh
+      firstGeometry = mesh.geometry
+      hasIndex = !!(firstGeometry && firstGeometry.index && firstGeometry.index.count > 0)
+    } else {
+      // Find first mesh in group to check for faces
+      meshOrGroup.traverse((child) => {
+        if (!firstGeometry && (child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh
+          firstGeometry = mesh.geometry
+          hasIndex = !!(firstGeometry && firstGeometry.index && firstGeometry.index.count > 0)
+        }
+      })
+    }
+
     console.log("[v0] Background mesh set, has faces:", hasIndex, "bounds:", this.backgroundBounds)
 
     if (hasIndex) {
       // Has faces - use raycasting for floor detection
       this.buildFloorHeightGrid()
       this.cachedFloorHeight = this.calculateDefaultFloorHeight()
-    } else {
+    } else if (firstGeometry) {
       // Point cloud - find lowest Y from vertices
-      this.cachedFloorHeight = this.findLowestVertexY(geometry)
+      this.cachedFloorHeight = this.findLowestVertexY(firstGeometry)
       console.log("[v0] Point cloud detected, found lowest Y from vertices:", this.cachedFloorHeight)
     }
 
