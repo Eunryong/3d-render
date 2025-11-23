@@ -244,7 +244,14 @@ export default function Home() {
           lightingSettings={lightingSettings}
           measurementMode={measurementMode}
           measurementPoints={measurementPoints}
-          onAddMeasurementPoint={(point) => setMeasurementPoints([...measurementPoints, point])}
+          onAddMeasurementPoint={(point) => {
+            // Only allow 2 points - if already 2 points, start fresh with new point
+            if (measurementPoints.length >= 2) {
+              setMeasurementPoints([point])
+            } else {
+              setMeasurementPoints([...measurementPoints, point])
+            }
+          }}
         />
         {/* Error Toast */}
         {errorMessage && (

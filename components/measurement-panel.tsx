@@ -49,22 +49,13 @@ export function MeasurementPanel({
 
       {measurementMode && (
         <>
-          <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
-          <div className="text-sm px-2">
-            <span className="text-gray-500">포인트:</span>{" "}
-            <span className="font-medium">{measurementPoints.length}</span>
-          </div>
-          {measurementPoints.length >= 2 && (
+          {measurementPoints.length === 2 ? (
             <>
               <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
               <div className="text-sm px-2">
                 <span className="text-gray-500">거리:</span>{" "}
                 <span className="font-medium text-blue-600">{totalDistance.toFixed(2)}m</span>
               </div>
-            </>
-          )}
-          {measurementPoints.length > 0 && (
-            <>
               <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
               <Button
                 variant="ghost"
@@ -75,12 +66,12 @@ export function MeasurementPanel({
                 <Trash2 className="w-4 h-4" />
               </Button>
             </>
+          ) : measurementPoints.length === 1 ? (
+            <span className="text-xs text-gray-400 px-2">끝점을 클릭하세요</span>
+          ) : (
+            <span className="text-xs text-gray-400 px-2">시작점을 클릭하세요</span>
           )}
         </>
-      )}
-
-      {measurementMode && measurementPoints.length === 0 && (
-        <span className="text-xs text-gray-400 px-2">바닥을 클릭하여 측정점 추가</span>
       )}
     </div>
   )
