@@ -6,6 +6,7 @@ import { Suspense, useRef, useState, useEffect, useCallback } from "react"
 import { PLYLoader } from "./ply-loader"
 import { FurnitureObjects } from "./furniture-objects"
 import type { CollisionDetector } from "./collision-detector"
+import type { ViewMode } from "./view-controls-panel"
 import * as THREE from "three"
 
 interface SceneViewerProps {
@@ -28,6 +29,7 @@ interface SceneViewerProps {
   backgroundType?: "color" | "image"
   backgroundValue?: string
   floorOrientation?: "Y" | "X" | "Z"
+  viewMode?: ViewMode
 }
 
 function FurnitureFocusController({
@@ -165,6 +167,109 @@ function CameraController({
   return null
 }
 
+function ViewModeController({
+  viewMode,
+  collisionDetector,
+}: {
+  viewMode: ViewMode
+  collisionDetector: CollisionDetector
+}) {
+  const { camera, controls } = useThree()
+  const prevViewModeRef = useRef<ViewMode>(viewMode)
+
+  useEffect(() => {
+    if (viewMode === prevViewModeRef.current) return
+
+    const bounds = collisionDetector.getBackgroundBounds()
+    const floorHeight = collisionDetector.getFloorHeight() ?? 0
+
+    // Default scene center and size
+    let center = new THREE.Vector3(0, floorHeight, 0)
+    let size = new THREE.Vector3(10, 5, 10)
+
+    if (bounds) {
+      const boundsCenter = new THREE.Vector3()
+      bounds.getCenter(boundsCenter)
+      bounds.getSize(size)
+      center = new THREE.Vector3(boundsCenter.x, floorHeight, boundsCenter.z)
+    }
+
+    const orbitControls = controls as any
+    if (!orbitControls) return
+
+    let newPosition: THREE.Vector3
+    let newTarget: THREE.Vector3
+
+    switch (viewMode) {
+      case "top":
+        // Top-down view
+        newPosition = new THREE.Vector3(center.x, center.y + Math.max(size.x, size.z) * 1.2, center.z)
+        newTarget = center.clone()
+        break
+
+      case "firstPerson":
+        // First person view - eye level inside the space
+        newPosition = new THREE.Vector3(center.x, floorHeight + 1.6, center.z + size.z * 0.3)
+        newTarget = new THREE.Vector3(center.x, floorHeight + 1.6, center.z - size.z * 0.3)
+        break
+
+      case "thirdPerson":
+        // Third person view - slightly elevated behind
+        newPosition = new THREE.Vector3(center.x, floorHeight + 2.5, center.z + size.z * 0.6)
+        newTarget = new THREE.Vector3(center.x, floorHeight + 1, center.z)
+        break
+
+      case "birdEye":
+        // Bird's eye view - high angle diagonal
+        const birdHeight = Math.max(size.x, size.z) * 0.8
+        newPosition = new THREE.Vector3(
+          center.x + size.x * 0.5,
+          center.y + birdHeight,
+          center.z + size.z * 0.5
+        )
+        newTarget = center.clone()
+        break
+
+      case "default":
+      default:
+        // Default perspective view
+        const defaultDist = Math.max(size.x, size.z) * 0.8
+        newPosition = new THREE.Vector3(
+          center.x + defaultDist * 0.7,
+          center.y + defaultDist * 0.5,
+          center.z + defaultDist * 0.7
+        )
+        newTarget = center.clone()
+        break
+    }
+
+    // Animate camera transition
+    const startPosition = camera.position.clone()
+    const startTarget = orbitControls.target.clone()
+    const duration = 500
+    const startTime = Date.now()
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2
+
+      camera.position.lerpVectors(startPosition, newPosition, eased)
+      orbitControls.target.lerpVectors(startTarget, newTarget, eased)
+      orbitControls.update()
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      }
+    }
+
+    animate()
+    prevViewModeRef.current = viewMode
+  }, [viewMode, camera, controls, collisionDetector])
+
+  return null
+}
+
 function BackgroundSphere({ texture }: { texture: THREE.Texture | null }) {
   const meshRef = useRef<THREE.Mesh>(null)
   const [rotation, setRotation] = useState(0)
@@ -205,6 +310,7 @@ export function SceneViewer({
   backgroundType = "color",
   backgroundValue = "#f5f5f5",
   floorOrientation = "Y",
+  viewMode = "default",
 }: SceneViewerProps) {
   const [plyMesh, setPlyMesh] = useState<THREE.Mesh | THREE.Group | null>(null)
   const [backgroundTexture, setBackgroundTexture] = useState<THREE.Texture | null>(null)
@@ -280,6 +386,7 @@ export function SceneViewer({
           furnitureItems={furnitureItems}
           collisionDetector={collisionDetector}
         />
+        <ViewModeController viewMode={viewMode} collisionDetector={collisionDetector} />
 
         {/* Background Sphere for images */}
         {backgroundTexture && <BackgroundSphere texture={backgroundTexture} />}

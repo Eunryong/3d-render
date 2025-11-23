@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { SceneViewer } from "@/components/scene-viewer"
 import { Sidebar } from "@/components/sidebar"
 import { TransformControlsPanel } from "@/components/transform-controls-panel"
+import { ViewControlsPanel, type ViewMode } from "@/components/view-controls-panel"
 import * as THREE from "three"
 import { CollisionDetector } from "@/components/collision-detector"
 import { useHistory } from "@/hooks/use-history"
@@ -34,6 +35,7 @@ export default function Home() {
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color")
   const [backgroundValue, setBackgroundValue] = useState("#f5f5f5")
   const [floorOrientation, setFloorOrientation] = useState<"Y" | "X" | "Z">("Y")
+  const [viewMode, setViewMode] = useState<ViewMode>("default")
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -189,6 +191,7 @@ export default function Home() {
       />
       <main className="flex-1 relative">
         <TransformControlsPanel mode={transformMode} onModeChange={setTransformMode} selectedId={selectedId} />
+        <ViewControlsPanel viewMode={viewMode} onViewModeChange={setViewMode} />
         <SceneViewer
           plyFile={plyFile}
           furnitureItems={furnitureItems}
@@ -201,6 +204,7 @@ export default function Home() {
           backgroundType={backgroundType}
           backgroundValue={backgroundValue}
           floorOrientation={floorOrientation}
+          viewMode={viewMode}
         />
       </main>
     </div>
