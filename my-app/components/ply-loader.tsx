@@ -97,11 +97,12 @@ export function PLYLoader({ file, onMeshLoad, color = "#e0e0e0" }: PLYLoaderProp
             }
           })
 
-          // Center the model
+          // Center X and Z, but move Y so that lowest point is at Y=0
           const box = new THREE.Box3().setFromObject(group)
-          const center = new THREE.Vector3()
-          box.getCenter(center)
-          group.position.sub(center)
+          const centerX = (box.min.x + box.max.x) / 2
+          const centerZ = (box.min.z + box.max.z) / 2
+          const minY = box.min.y
+          group.position.set(-centerX, -minY, -centerZ)
 
           setProgress(100)
           setModel(group)
@@ -163,7 +164,16 @@ export function PLYLoader({ file, onMeshLoad, color = "#e0e0e0" }: PLYLoaderProp
 
       setProgress(90)
 
-      loadedGeometry.center()
+      // Center X and Z, but move Y so that lowest point is at Y=0
+      loadedGeometry.computeBoundingBox()
+      const bbox = loadedGeometry.boundingBox
+      if (bbox) {
+        const centerX = (bbox.min.x + bbox.max.x) / 2
+        const centerZ = (bbox.min.z + bbox.max.z) / 2
+        const minY = bbox.min.y
+        // Translate: center X/Z, and shift Y so min.y becomes 0
+        loadedGeometry.translate(-centerX, -minY, -centerZ)
+      }
 
       setProgress(100)
       setGeometry(loadedGeometry)
