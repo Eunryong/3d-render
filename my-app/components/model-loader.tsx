@@ -1,27 +1,34 @@
-'use client'
+"use client"
 
-import { useEffect, useState, useRef } from 'react'
-import { useLoader } from '@react-three/fiber'
-import { GLTFLoader } from 'three-stdlib'
-import { OBJLoader } from 'three-stdlib'
-import * as THREE from 'three'
+import { useEffect, useState, useRef } from "react"
+import { GLTFLoader } from "three-stdlib"
+import { OBJLoader } from "three-stdlib"
+import * as THREE from "three"
 
 interface ModelLoaderProps {
   url: string
-  type: 'glb' | 'obj'
+  type: "glb" | "obj"
   position?: [number, number, number]
   rotation?: [number, number, number]
   scale?: number
+  onClick?: (e: any) => void
 }
 
-export function ModelLoader({ url, type, position = [0, 0, 0], rotation = [0, 0, 0], scale = 1 }: ModelLoaderProps) {
+export function ModelLoader({
+  url,
+  type,
+  position = [0, 0, 0],
+  rotation = [0, 0, 0],
+  scale = 1,
+  onClick,
+}: ModelLoaderProps) {
   const meshRef = useRef<THREE.Group>(null)
   const [model, setModel] = useState<THREE.Group | THREE.Object3D | null>(null)
 
   useEffect(() => {
     const loadModel = async () => {
       try {
-        if (type === 'glb') {
+        if (type === "glb") {
           const loader = new GLTFLoader()
           loader.load(url, (gltf) => {
             const scene = gltf.scene
@@ -33,7 +40,7 @@ export function ModelLoader({ url, type, position = [0, 0, 0], rotation = [0, 0,
             })
             setModel(scene)
           })
-        } else if (type === 'obj') {
+        } else if (type === "obj") {
           const loader = new OBJLoader()
           loader.load(url, (obj) => {
             obj.traverse((child) => {
@@ -42,7 +49,7 @@ export function ModelLoader({ url, type, position = [0, 0, 0], rotation = [0, 0,
                 child.receiveShadow = true
                 const mesh = child as THREE.Mesh
                 if (!mesh.material) {
-                  mesh.material = new THREE.MeshStandardMaterial({ color: 0x8B4513 })
+                  mesh.material = new THREE.MeshStandardMaterial({ color: 0x8b4513 })
                 }
               }
             })
@@ -50,7 +57,7 @@ export function ModelLoader({ url, type, position = [0, 0, 0], rotation = [0, 0,
           })
         }
       } catch (error) {
-        console.error('Failed to load model:', error)
+        console.error("Failed to load model:", error)
       }
     }
 
@@ -59,7 +66,7 @@ export function ModelLoader({ url, type, position = [0, 0, 0], rotation = [0, 0,
 
   if (!model) {
     return (
-      <mesh position={position}>
+      <mesh position={position} onClick={onClick}>
         <boxGeometry args={[0.5, 0.5, 0.5]} />
         <meshStandardMaterial color="#cccccc" />
       </mesh>
@@ -67,7 +74,7 @@ export function ModelLoader({ url, type, position = [0, 0, 0], rotation = [0, 0,
   }
 
   return (
-    <group ref={meshRef} position={position} rotation={rotation} scale={scale}>
+    <group ref={meshRef} position={position} rotation={rotation} scale={scale} onClick={onClick}>
       <primitive object={model} />
     </group>
   )
