@@ -5,6 +5,7 @@ import { SceneViewer } from "@/components/scene-viewer"
 import { Sidebar } from "@/components/sidebar"
 import { TransformControlsPanel } from "@/components/transform-controls-panel"
 import { ViewControlsPanel, type ViewMode } from "@/components/view-controls-panel"
+import { MeasurementPanel } from "@/components/measurement-panel"
 import * as THREE from "three"
 import { CollisionDetector } from "@/components/collision-detector"
 import { useHistory } from "@/hooks/use-history"
@@ -23,6 +24,11 @@ export interface LightingSettings {
   ambientIntensity: number
   directionalIntensity: number
   colorTemperature: number // 2700K (warm) to 6500K (cool)
+}
+
+export interface MeasurementPoint {
+  id: string
+  position: [number, number, number]
 }
 
 export default function Home() {
@@ -46,6 +52,8 @@ export default function Home() {
     directionalIntensity: 1.0,
     colorTemperature: 4000, // Neutral white
   })
+  const [measurementMode, setMeasurementMode] = useState(false)
+  const [measurementPoints, setMeasurementPoints] = useState<MeasurementPoint[]>([])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -202,6 +210,12 @@ export default function Home() {
       <main className="flex-1 relative">
         <TransformControlsPanel mode={transformMode} onModeChange={setTransformMode} selectedId={selectedId} />
         <ViewControlsPanel viewMode={viewMode} onViewModeChange={setViewMode} />
+        <MeasurementPanel
+          measurementMode={measurementMode}
+          onMeasurementModeChange={setMeasurementMode}
+          measurementPoints={measurementPoints}
+          onClearMeasurements={() => setMeasurementPoints([])}
+        />
         <SceneViewer
           plyFile={plyFile}
           furnitureItems={furnitureItems}
@@ -215,6 +229,9 @@ export default function Home() {
           backgroundValue={backgroundValue}
           viewMode={viewMode}
           lightingSettings={lightingSettings}
+          measurementMode={measurementMode}
+          measurementPoints={measurementPoints}
+          onAddMeasurementPoint={(point) => setMeasurementPoints([...measurementPoints, point])}
         />
       </main>
     </div>

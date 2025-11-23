@@ -1,13 +1,13 @@
 "use client"
 
 import { Canvas, useThree } from "@react-three/fiber"
-import { OrbitControls, PerspectiveCamera, Grid } from "@react-three/drei"
+import { OrbitControls, PerspectiveCamera, Grid, Text, Line } from "@react-three/drei"
 import { Suspense, useRef, useState, useEffect, useCallback, useMemo } from "react"
 import { PLYLoader } from "./ply-loader"
 import { FurnitureObjects } from "./furniture-objects"
 import type { CollisionDetector } from "./collision-detector"
 import type { ViewMode } from "./view-controls-panel"
-import type { LightingSettings } from "@/app/page"
+import type { LightingSettings, MeasurementPoint } from "@/app/page"
 import * as THREE from "three"
 
 // Convert color temperature (Kelvin) to RGB color
@@ -55,6 +55,9 @@ interface SceneViewerProps {
   backgroundValue?: string
   viewMode?: ViewMode
   lightingSettings?: LightingSettings
+  measurementMode?: boolean
+  measurementPoints?: MeasurementPoint[]
+  onAddMeasurementPoint?: (point: MeasurementPoint) => void
 }
 
 function FurnitureFocusController({
@@ -336,6 +339,9 @@ export function SceneViewer({
   backgroundValue = "#f5f5f5",
   viewMode = "default",
   lightingSettings,
+  measurementMode = false,
+  measurementPoints = [],
+  onAddMeasurementPoint,
 }: SceneViewerProps) {
   const [plyMesh, setPlyMesh] = useState<THREE.Mesh | THREE.Group | null>(null)
   const [backgroundTexture, setBackgroundTexture] = useState<THREE.Texture | null>(null)
@@ -451,18 +457,76 @@ export function SceneViewer({
           </mesh>
         )}
 
-        {/* Invisible click plane to deselect */}
+        {/* Invisible click plane for deselect and measurement */}
         <mesh
-          position={[0, -0.02, 0]}
+          position={[0, gridConfig.floorHeight - 0.01, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           onClick={(e) => {
             e.stopPropagation()
-            onSelectFurniture(null)
+            if (measurementMode && onAddMeasurementPoint) {
+              const point = e.point
+              onAddMeasurementPoint({
+                id: `measurement-${Date.now()}`,
+                position: [point.x, point.y, point.z],
+              })
+            } else {
+              onSelectFurniture(null)
+            }
           }}
         >
-          <planeGeometry args={[100, 100]} />
+          <planeGeometry args={[200, 200]} />
           <meshBasicMaterial transparent opacity={0} />
         </mesh>
+
+        {/* Measurement Points and Lines */}
+        {measurementPoints.length > 0 && (
+          <>
+            {/* Render measurement points */}
+            {measurementPoints.map((point, index) => (
+              <mesh key={point.id} position={point.position}>
+                <sphereGeometry args={[0.05, 16, 16]} />
+                <meshBasicMaterial color={index === 0 ? "#22c55e" : "#3b82f6"} />
+              </mesh>
+            ))}
+
+            {/* Render lines between points */}
+            {measurementPoints.length >= 2 && (
+              <Line
+                points={measurementPoints.map((p) => p.position)}
+                color="#3b82f6"
+                lineWidth={2}
+              />
+            )}
+
+            {/* Render distance labels between consecutive points */}
+            {measurementPoints.length >= 2 &&
+              measurementPoints.slice(1).map((point, index) => {
+                const prevPoint = measurementPoints[index]
+                const midX = (prevPoint.position[0] + point.position[0]) / 2
+                const midY = (prevPoint.position[1] + point.position[1]) / 2 + 0.15
+                const midZ = (prevPoint.position[2] + point.position[2]) / 2
+                const distance = Math.sqrt(
+                  Math.pow(point.position[0] - prevPoint.position[0], 2) +
+                    Math.pow(point.position[1] - prevPoint.position[1], 2) +
+                    Math.pow(point.position[2] - prevPoint.position[2], 2),
+                )
+                return (
+                  <Text
+                    key={`label-${index}`}
+                    position={[midX, midY, midZ]}
+                    fontSize={0.12}
+                    color="#3b82f6"
+                    anchorX="center"
+                    anchorY="middle"
+                    outlineWidth={0.01}
+                    outlineColor="white"
+                  >
+                    {distance.toFixed(2)}m
+                  </Text>
+                )
+              })}
+          </>
+        )}
 
         {/* PLY Model */}
         <Suspense fallback={null}>
