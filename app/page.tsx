@@ -34,7 +34,6 @@ export default function Home() {
   const [collisionDetector] = useState(() => new CollisionDetector())
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color")
   const [backgroundValue, setBackgroundValue] = useState("#f5f5f5")
-  const [floorOrientation, setFloorOrientation] = useState<"Y" | "X" | "Z">("Y")
   const [viewMode, setViewMode] = useState<ViewMode>("default")
 
   useEffect(() => {
@@ -182,8 +181,6 @@ export default function Home() {
         selectedId={selectedId}
         onDeleteSelected={handleDeleteSelected}
         furnitureCount={furnitureItems.length}
-        onFloorOrientationChange={setFloorOrientation}
-        floorOrientation={floorOrientation}
         onUndo={undo}
         onRedo={redo}
         canUndo={canUndo}
@@ -203,7 +200,6 @@ export default function Home() {
           collisionDetector={collisionDetector}
           backgroundType={backgroundType}
           backgroundValue={backgroundValue}
-          floorOrientation={floorOrientation}
           viewMode={viewMode}
         />
       </main>

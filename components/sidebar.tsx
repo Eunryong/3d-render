@@ -15,8 +15,6 @@ interface SidebarProps {
   selectedId: string | null
   onDeleteSelected: () => void
   furnitureCount: number
-  onFloorOrientationChange?: (orientation: "Y" | "X" | "Z") => void
-  floorOrientation?: "Y" | "X" | "Z"
   onUndo?: () => void
   onRedo?: () => void
   canUndo?: boolean
@@ -30,8 +28,6 @@ export function Sidebar({
   selectedId,
   onDeleteSelected,
   furnitureCount,
-  onFloorOrientationChange,
-  floorOrientation = "Y",
   onUndo,
   onRedo,
   canUndo = false,
@@ -109,47 +105,6 @@ export function Sidebar({
                 onChange={handleFileChange}
               />
             </Label>
-          </div>
-
-          <div className="space-y-3">
-            <h2 className="font-semibold text-gray-950 dark:text-gray-50">바닥 방향</h2>
-            <div className="space-y-2">
-              <p className="text-xs text-gray-500 dark:text-gray-400">PLY 모델의 바닥면을 올바른 방향으로 조정하세요</p>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant={floorOrientation === "Y" ? "default" : "outline"}
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => onFloorOrientationChange?.("Y")}
-                >
-                  <span className="mr-1">↕️</span>
-                  Y축
-                </Button>
-                <Button
-                  variant={floorOrientation === "X" ? "default" : "outline"}
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => onFloorOrientationChange?.("X")}
-                >
-                  <span className="mr-1">↔️</span>
-                  X축
-                </Button>
-                <Button
-                  variant={floorOrientation === "Z" ? "default" : "outline"}
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => onFloorOrientationChange?.("Z")}
-                >
-                  <span className="mr-1">⤴️</span>
-                  Z축
-                </Button>
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1 mt-2">
-                <p>• Y축: 일반적인 바닥 (수평)</p>
-                <p>• X축: 왼쪽/오른쪽이 바닥</p>
-                <p>• Z축: 앞/뒤가 바닥</p>
-              </div>
-            </div>
           </div>
 
           {/* Furniture Library */}
