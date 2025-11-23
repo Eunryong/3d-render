@@ -1,6 +1,6 @@
 "use client"
 
-import { Canvas, useThree } from "@react-three/fiber"
+import { Canvas, useThree, useFrame } from "@react-three/fiber"
 import { OrbitControls, PerspectiveCamera, Grid, Text, Line } from "@react-three/drei"
 import { Suspense, useRef, useState, useEffect, useCallback, useMemo } from "react"
 import { PLYLoader } from "./ply-loader"
@@ -331,6 +331,75 @@ function BackgroundSphere({ texture }: { texture: THREE.Texture | null }) {
   )
 }
 
+function MeasurementPreview({
+  startPoint,
+  floorHeight,
+}: {
+  startPoint: [number, number, number]
+  floorHeight: number
+}) {
+  const { camera, raycaster, pointer } = useThree()
+  const [mousePos, setMousePos] = useState<[number, number, number] | null>(null)
+  const planeRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -floorHeight))
+
+  useFrame(() => {
+    // Update plane height
+    planeRef.current.constant = -floorHeight
+
+    // Raycast to floor plane
+    raycaster.setFromCamera(pointer, camera)
+    const intersection = new THREE.Vector3()
+    const hit = raycaster.ray.intersectPlane(planeRef.current, intersection)
+
+    if (hit) {
+      setMousePos([intersection.x, intersection.y, intersection.z])
+    }
+  })
+
+  if (!mousePos) return null
+
+  const distance = Math.sqrt(
+    Math.pow(mousePos[0] - startPoint[0], 2) +
+    Math.pow(mousePos[1] - startPoint[1], 2) +
+    Math.pow(mousePos[2] - startPoint[2], 2)
+  )
+
+  const midX = (startPoint[0] + mousePos[0]) / 2
+  const midY = (startPoint[1] + mousePos[1]) / 2 + 0.15
+  const midZ = (startPoint[2] + mousePos[2]) / 2
+
+  return (
+    <>
+      {/* Preview line */}
+      <Line
+        points={[startPoint, mousePos]}
+        color="#22c55e"
+        lineWidth={2}
+        dashed
+        dashSize={0.1}
+        gapSize={0.05}
+      />
+      {/* Preview end point */}
+      <mesh position={mousePos}>
+        <sphereGeometry args={[0.04, 16, 16]} />
+        <meshBasicMaterial color="#22c55e" transparent opacity={0.6} />
+      </mesh>
+      {/* Preview distance label */}
+      <Text
+        position={[midX, midY, midZ]}
+        fontSize={0.1}
+        color="#22c55e"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.01}
+        outlineColor="white"
+      >
+        {distance.toFixed(2)}m
+      </Text>
+    </>
+  )
+}
+
 export function SceneViewer({
   plyFile,
   furnitureItems,
@@ -484,6 +553,14 @@ export function SceneViewer({
           <planeGeometry args={[200, 200]} />
           <meshBasicMaterial transparent opacity={0} />
         </mesh>
+
+        {/* Measurement Preview Line (follows mouse) */}
+        {measurementMode && measurementPoints.length === 1 && (
+          <MeasurementPreview
+            startPoint={measurementPoints[0].position}
+            floorHeight={gridConfig.floorHeight}
+          />
+        )}
 
         {/* Measurement Points and Lines */}
         {measurementPoints.length > 0 && (
