@@ -28,7 +28,6 @@ interface SceneViewerProps {
   collisionDetector: CollisionDetector
   backgroundType?: "color" | "image"
   backgroundValue?: string
-  floorOrientation?: "Y" | "X" | "Z"
   viewMode?: ViewMode
 }
 
@@ -309,7 +308,6 @@ export function SceneViewer({
   collisionDetector,
   backgroundType = "color",
   backgroundValue = "#f5f5f5",
-  floorOrientation = "Y",
   viewMode = "default",
 }: SceneViewerProps) {
   const [plyMesh, setPlyMesh] = useState<THREE.Mesh | THREE.Group | null>(null)
