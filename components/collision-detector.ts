@@ -512,7 +512,8 @@ export class CollisionDetector {
   }
 
   checkCollisionFull(furnitureId: string, furnitureBox: THREE.Box3): boolean {
-    // Check collision with other furniture using spatial hash
+    // Only check collision with other furniture using spatial hash
+    // X-Z boundary is handled by clampToBounds during drag
     const candidates = this.spatialHash.query(furnitureBox, furnitureId)
 
     for (const id of candidates) {
@@ -520,6 +521,16 @@ export class CollisionDetector {
       if (box && furnitureBox.intersectsBox(box)) {
         return true
       }
+    }
+
+    return false
+  }
+
+  // Check collision including bounds (for placement validation)
+  checkCollisionWithBounds(furnitureId: string, furnitureBox: THREE.Box3): boolean {
+    // First check furniture collision
+    if (this.checkCollisionFull(furnitureId, furnitureBox)) {
+      return true
     }
 
     // Check if furniture is inside the background mesh bounds
