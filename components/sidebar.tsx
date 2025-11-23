@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Upload, Sofa, Lamp, Table, Armchair, Trash2, Plus, Bed, Undo2, Redo2 } from "lucide-react"
+import { Slider } from "@/components/ui/slider"
+import { Upload, Sofa, Lamp, Table, Armchair, Trash2, Plus, Bed, Undo2, Redo2, Sun, Thermometer } from "lucide-react"
+import type { LightingSettings } from "@/app/page"
 
 interface SidebarProps {
   onFileUpload: (file: File) => void
@@ -19,6 +21,8 @@ interface SidebarProps {
   onRedo?: () => void
   canUndo?: boolean
   canRedo?: boolean
+  lightingSettings?: LightingSettings
+  onLightingChange?: (settings: LightingSettings) => void
 }
 
 export function Sidebar({
@@ -32,6 +36,8 @@ export function Sidebar({
   onRedo,
   canUndo = false,
   canRedo = false,
+  lightingSettings,
+  onLightingChange,
 }: SidebarProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -172,6 +178,72 @@ export function Sidebar({
               단축키: Ctrl+Z (실행취소), Ctrl+Shift+Z (다시실행)
             </p>
           </div>
+
+          {/* Lighting Controls */}
+          {lightingSettings && onLightingChange && (
+            <div className="space-y-3">
+              <h2 className="font-semibold text-gray-950 dark:text-gray-50">조명 설정</h2>
+              <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                {/* Ambient Light */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2 text-sm">
+                      <Sun className="w-4 h-4" />
+                      환경광
+                    </Label>
+                    <span className="text-xs text-gray-500">{Math.round(lightingSettings.ambientIntensity * 100)}%</span>
+                  </div>
+                  <Slider
+                    value={[lightingSettings.ambientIntensity]}
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    onValueChange={([value]) => onLightingChange({ ...lightingSettings, ambientIntensity: value })}
+                  />
+                </div>
+
+                {/* Directional Light */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2 text-sm">
+                      <Sun className="w-4 h-4" />
+                      직사광
+                    </Label>
+                    <span className="text-xs text-gray-500">{Math.round(lightingSettings.directionalIntensity * 100)}%</span>
+                  </div>
+                  <Slider
+                    value={[lightingSettings.directionalIntensity]}
+                    min={0}
+                    max={3}
+                    step={0.1}
+                    onValueChange={([value]) => onLightingChange({ ...lightingSettings, directionalIntensity: value })}
+                  />
+                </div>
+
+                {/* Color Temperature */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2 text-sm">
+                      <Thermometer className="w-4 h-4" />
+                      색온도
+                    </Label>
+                    <span className="text-xs text-gray-500">{lightingSettings.colorTemperature}K</span>
+                  </div>
+                  <Slider
+                    value={[lightingSettings.colorTemperature]}
+                    min={2700}
+                    max={6500}
+                    step={100}
+                    onValueChange={([value]) => onLightingChange({ ...lightingSettings, colorTemperature: value })}
+                  />
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>따뜻함</span>
+                    <span>차가움</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Scene Info */}
           <div className="space-y-3">

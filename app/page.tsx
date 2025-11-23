@@ -19,6 +19,12 @@ interface FurnitureItem {
   modelType?: "glb" | "obj"
 }
 
+export interface LightingSettings {
+  ambientIntensity: number
+  directionalIntensity: number
+  colorTemperature: number // 2700K (warm) to 6500K (cool)
+}
+
 export default function Home() {
   const [plyFile, setPlyFile] = useState<File | null>(null)
   const {
@@ -35,6 +41,11 @@ export default function Home() {
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color")
   const [backgroundValue, setBackgroundValue] = useState("#f5f5f5")
   const [viewMode, setViewMode] = useState<ViewMode>("default")
+  const [lightingSettings, setLightingSettings] = useState<LightingSettings>({
+    ambientIntensity: 0.6,
+    directionalIntensity: 1.0,
+    colorTemperature: 4000, // Neutral white
+  })
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -185,6 +196,8 @@ export default function Home() {
         onRedo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
+        lightingSettings={lightingSettings}
+        onLightingChange={setLightingSettings}
       />
       <main className="flex-1 relative">
         <TransformControlsPanel mode={transformMode} onModeChange={setTransformMode} selectedId={selectedId} />
@@ -201,6 +214,7 @@ export default function Home() {
           backgroundType={backgroundType}
           backgroundValue={backgroundValue}
           viewMode={viewMode}
+          lightingSettings={lightingSettings}
         />
       </main>
     </div>

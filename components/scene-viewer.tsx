@@ -2,12 +2,37 @@
 
 import { Canvas, useThree } from "@react-three/fiber"
 import { OrbitControls, PerspectiveCamera, Grid } from "@react-three/drei"
-import { Suspense, useRef, useState, useEffect, useCallback } from "react"
+import { Suspense, useRef, useState, useEffect, useCallback, useMemo } from "react"
 import { PLYLoader } from "./ply-loader"
 import { FurnitureObjects } from "./furniture-objects"
 import type { CollisionDetector } from "./collision-detector"
 import type { ViewMode } from "./view-controls-panel"
+import type { LightingSettings } from "@/app/page"
 import * as THREE from "three"
+
+// Convert color temperature (Kelvin) to RGB color
+function kelvinToRGB(kelvin: number): THREE.Color {
+  const temp = kelvin / 100
+  let red, green, blue
+
+  if (temp <= 66) {
+    red = 255
+    green = Math.min(255, Math.max(0, 99.4708025861 * Math.log(temp) - 161.1195681661))
+  } else {
+    red = Math.min(255, Math.max(0, 329.698727446 * Math.pow(temp - 60, -0.1332047592)))
+    green = Math.min(255, Math.max(0, 288.1221695283 * Math.pow(temp - 60, -0.0755148492)))
+  }
+
+  if (temp >= 66) {
+    blue = 255
+  } else if (temp <= 19) {
+    blue = 0
+  } else {
+    blue = Math.min(255, Math.max(0, 138.5177312231 * Math.log(temp - 10) - 305.0447927307))
+  }
+
+  return new THREE.Color(red / 255, green / 255, blue / 255)
+}
 
 interface SceneViewerProps {
   plyFile: File | null
@@ -29,6 +54,7 @@ interface SceneViewerProps {
   backgroundType?: "color" | "image"
   backgroundValue?: string
   viewMode?: ViewMode
+  lightingSettings?: LightingSettings
 }
 
 function FurnitureFocusController({
@@ -309,10 +335,17 @@ export function SceneViewer({
   backgroundType = "color",
   backgroundValue = "#f5f5f5",
   viewMode = "default",
+  lightingSettings,
 }: SceneViewerProps) {
   const [plyMesh, setPlyMesh] = useState<THREE.Mesh | THREE.Group | null>(null)
   const [backgroundTexture, setBackgroundTexture] = useState<THREE.Texture | null>(null)
   const [gridConfig, setGridConfig] = useState({ cellSize: 1, sectionSize: 5, fadeDistance: 30, floorHeight: 0 })
+
+  // Calculate light color from color temperature
+  const lightColor = useMemo(() => {
+    const temp = lightingSettings?.colorTemperature ?? 4000
+    return kelvinToRGB(temp)
+  }, [lightingSettings?.colorTemperature])
 
   const handleMeshLoad = useCallback(
     (meshOrGroup: THREE.Mesh | THREE.Group) => {
@@ -371,16 +404,24 @@ export function SceneViewer({
         {/* Background Sphere for images */}
         {backgroundTexture && <BackgroundSphere texture={backgroundTexture} />}
 
-        {/* Lighting - brighter for better visibility */}
-        <ambientLight intensity={0.6} />
+        {/* Lighting - dynamic based on settings */}
+        <ambientLight
+          intensity={lightingSettings?.ambientIntensity ?? 0.6}
+          color={lightColor}
+        />
         <directionalLight
           position={[10, 10, 5]}
-          intensity={1.2}
+          intensity={lightingSettings?.directionalIntensity ?? 1.2}
+          color={lightColor}
           castShadow
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
         />
-        <pointLight position={[-10, -10, -5]} intensity={0.4} />
+        <pointLight
+          position={[-10, -10, -5]}
+          intensity={(lightingSettings?.ambientIntensity ?? 0.6) * 0.5}
+          color={lightColor}
+        />
 
         {/* Grid - positioned at the raycasted floor height */}
         <Grid
